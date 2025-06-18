@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { DatabaseRequest } from "@/types/types";
 import { TargetingOptional } from "@/types/targeting";
 import { uploadBlacklistFile } from "@/services/database/uploadService";
+import { ensureAllBucketsExist } from "@/services/database/config";
 import { databaseCreationSchema, DatabaseCreationFormData, defaultValues } from "./database-creation/schema";
 
 interface DatabaseCreationFormProps {
@@ -28,12 +30,33 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
   const [isFormReady, setIsFormReady] = useState(false);
+  const [bucketsReady, setBucketsReady] = useState(false);
 
   const form = useForm<DatabaseCreationFormData>({
     resolver: zodResolver(databaseCreationSchema),
     defaultValues,
     mode: "onChange"
   });
+
+  useEffect(() => {
+    const initializeBuckets = async () => {
+      console.log("DatabaseCreationForm - Initialisation des buckets Supabase");
+      try {
+        const success = await ensureAllBucketsExist();
+        setBucketsReady(success);
+        if (!success) {
+          toast.error("Erreur lors de l'initialisation du stockage");
+        } else {
+          console.log("DatabaseCreationForm - Buckets initialisés avec succès");
+        }
+      } catch (error) {
+        console.error("DatabaseCreationForm - Erreur initialisation buckets:", error);
+        toast.error("Erreur lors de l'initialisation du stockage");
+      }
+    };
+
+    initializeBuckets();
+  }, []);
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -97,11 +120,32 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     initializeForm();
   }, [editMode, initialData, form]);
 
-  const handleFileUpload = async (field: string, files: FileList | null) => {
-    console.log(`DatabaseCreationForm - Tentative de téléchargement pour le champ: ${field}`, files);
+  const handleFileUpload = async (field: string, files: FileList | null | string) => {
+    console.log(`DatabaseCreationForm - handleFileUpload appelé pour ${field}:`, { files, type: typeof files });
     
+    // Cas 1: Suppression de fichier (null)
+    if (files === null) {
+      console.log(`DatabaseCreationForm - Suppression des fichiers pour ${field}`);
+      form.setValue(field as keyof DatabaseCreationFormData, [] as any);
+      form.trigger(field as keyof DatabaseCreationFormData);
+      return;
+    }
+    
+    // Cas 2: URL existante (string) - ne rien faire
+    if (typeof files === 'string') {
+      console.log(`DatabaseCreationForm - URL de fichier reçue pour ${field}:`, files);
+      return;
+    }
+    
+    // Cas 3: Nouveaux fichiers à télécharger (FileList)
     if (!files || files.length === 0 || !user?.id) {
       console.log("DatabaseCreationForm - Pas de fichiers valides ou utilisateur non connecté");
+      return;
+    }
+
+    if (!bucketsReady) {
+      console.error("DatabaseCreationForm - Les buckets ne sont pas prêts");
+      toast.error("Le système de stockage n'est pas prêt. Veuillez réessayer.");
       return;
     }
 
@@ -114,7 +158,8 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
     console.log(`DatabaseCreationForm - Téléchargement du fichier pour ${field}:`, {
       name: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
+      userId: user.id
     });
 
     try {
@@ -122,7 +167,9 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       const loadingToast = toast.loading(`Téléchargement de "${file.name}" en cours...`);
       
       // Télécharger le fichier vers Supabase Storage
+      console.log("DatabaseCreationForm - Appel à uploadBlacklistFile...");
       const fileUrl = await uploadBlacklistFile(file);
+      console.log("DatabaseCreationForm - Résultat uploadBlacklistFile:", fileUrl);
       
       // Supprimer le toast de chargement
       toast.dismiss(loadingToast);
@@ -134,19 +181,29 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         const currentUrls = form.getValues(field as keyof DatabaseCreationFormData) as string[] || [];
         const newUrls = [...currentUrls, fileUrl];
         
-        console.log(`DatabaseCreationForm - Mise à jour du champ ${field} avec les URLs:`, newUrls);
+        console.log(`DatabaseCreationForm - Mise à jour du champ ${field}:`, {
+          currentUrls,
+          newUrls,
+          fieldValue: form.getValues(field as keyof DatabaseCreationFormData)
+        });
+        
         form.setValue(field as keyof DatabaseCreationFormData, newUrls as any);
         
         // Forcer la re-validation du formulaire
         form.trigger(field as keyof DatabaseCreationFormData);
         
+        // Vérifier que la valeur a bien été mise à jour
+        const updatedValue = form.getValues(field as keyof DatabaseCreationFormData);
+        console.log(`DatabaseCreationForm - Valeur après mise à jour pour ${field}:`, updatedValue);
+        
         toast.success(`Fichier "${file.name}" téléchargé avec succès`);
       } else {
-        console.error("DatabaseCreationForm - uploadBlacklistFile a retourné null");
-        toast.error("Erreur lors du téléchargement du fichier");
+        console.error("DatabaseCreationForm - uploadBlacklistFile a retourné null ou undefined");
+        toast.error("Erreur lors du téléchargement du fichier - Aucune URL retournée");
       }
     } catch (error) {
       console.error("DatabaseCreationForm - Erreur lors du téléchargement:", error);
+      console.error("DatabaseCreationForm - Stack trace:", error instanceof Error ? error.stack : 'Pas de stack trace');
       toast.error(`Erreur lors du téléchargement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
   };
@@ -254,6 +311,17 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <span className="ml-3 text-gray-600">Initialisation du formulaire...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!bucketsReady) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-3 text-gray-600">Initialisation du stockage...</span>
         </div>
       </div>
     );

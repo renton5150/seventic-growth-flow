@@ -28,6 +28,7 @@ export const BlacklistSection = ({
   const [uploading, setUploading] = useState(false);
 
   const handleBlacklistFileUpload = async (field: string, files: FileList | null | string) => {
+    console.log(`BlacklistSection - handleBlacklistFileUpload appelé pour ${field}:`, { files, type: typeof files });
     setUploading(true);
     try {
       await handleFileUpload(field, files);

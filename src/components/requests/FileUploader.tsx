@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { downloadDatabaseFile, extractFileName } from "@/services/database";
@@ -7,7 +8,7 @@ interface FileUploaderProps {
   icon: React.ReactNode;
   title: string;
   description: string;
-  value: string | null | undefined;
+  value: string[] | null | undefined;
   onChange: (files: FileList | null | string) => void;
   accept?: string;
   maxSize?: number;
@@ -42,7 +43,7 @@ export const FileUploader = ({
         return;
       }
       
-      console.log(`Fichier sélectionné: ${file.name}, taille: ${file.size}, type: ${file.type}`);
+      console.log(`FileUploader - Fichier sélectionné: ${file.name}, taille: ${file.size}, type: ${file.type}`);
     }
     
     onChange(e.target.files);
@@ -64,7 +65,7 @@ export const FileUploader = ({
         return;
       }
       
-      console.log(`Fichier déposé: ${file.name}, taille: ${file.size}, type: ${file.type}`);
+      console.log(`FileUploader - Fichier déposé: ${file.name}, taille: ${file.size}, type: ${file.type}`);
       onChange(e.dataTransfer.files);
     }
   };
@@ -80,11 +81,11 @@ export const FileUploader = ({
     fileInputRef.current?.click();
   };
 
-  const handleDownload = async (e: React.MouseEvent) => {
+  const handleDownload = async (e: React.MouseEvent, fileUrl: string) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!value || disabled || typeof value !== 'string' || downloading) return;
+    if (!fileUrl || disabled || downloading) return;
     
     try {
       setDownloading(true);
@@ -92,10 +93,10 @@ export const FileUploader = ({
       
       const loadingToast = toast.loading("Téléchargement en cours...");
       
-      const fileName = extractFileName(value);
-      console.log(`Téléchargement demandé pour: ${value}, nom extrait: ${fileName}`);
+      const fileName = extractFileName(fileUrl);
+      console.log(`FileUploader - Téléchargement demandé pour: ${fileUrl}, nom extrait: ${fileName}`);
       
-      const success = await downloadDatabaseFile(value, fileName);
+      const success = await downloadDatabaseFile(fileUrl, fileName);
       
       toast.dismiss(loadingToast);
       
@@ -106,41 +107,49 @@ export const FileUploader = ({
         toast.success(`Fichier "${fileName}" téléchargé avec succès`);
       }
     } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
+      console.error('FileUploader - Erreur lors du téléchargement:', error);
       setError("Erreur lors du téléchargement du fichier");
       toast.error("Erreur lors du téléchargement du fichier");
     } finally {
       setDownloading(false);
     }
   };
+
+  const handleRemoveFile = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation();
+    if (disabled) return;
+    
+    const newUrls = Array.isArray(value) ? value.filter((_, i) => i !== index) : [];
+    onChange(newUrls.length > 0 ? newUrls.join(',') : null);
+  };
   
   const renderFilePreview = () => {
-    if (typeof value === 'string' && value) {
-      const fileName = extractFileName(value);
-      
+    if (Array.isArray(value) && value.length > 0) {
       return (
-        <div className="flex flex-col items-center">
-          <div className="flex items-center space-x-2">
-            {icon}
-            <span className="text-sm font-medium break-all max-w-full">{fileName}</span>
-          </div>
-          <button 
-            onClick={handleDownload}
-            className="mt-2 text-sm text-blue-600 hover:underline focus:outline-none disabled:opacity-50"
-            disabled={downloading || disabled}
-          >
-            {downloading ? 'Téléchargement...' : 'Télécharger'}
-          </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange(null);
-            }}
-            className="mt-1 text-xs text-red-500 hover:underline focus:outline-none"
-            disabled={disabled}
-          >
-            Supprimer
-          </button>
+        <div className="flex flex-col items-center space-y-2">
+          {value.map((fileUrl, index) => {
+            const fileName = extractFileName(fileUrl);
+            return (
+              <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded">
+                {icon}
+                <span className="text-sm font-medium break-all max-w-full">{fileName}</span>
+                <button 
+                  onClick={(e) => handleDownload(e, fileUrl)}
+                  className="text-sm text-blue-600 hover:underline focus:outline-none disabled:opacity-50"
+                  disabled={downloading || disabled}
+                >
+                  {downloading ? 'Téléchargement...' : 'Télécharger'}
+                </button>
+                <button 
+                  onClick={(e) => handleRemoveFile(e, index)}
+                  className="text-xs text-red-500 hover:underline focus:outline-none"
+                  disabled={disabled}
+                >
+                  Supprimer
+                </button>
+              </div>
+            );
+          })}
         </div>
       );
     }
