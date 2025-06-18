@@ -40,6 +40,7 @@ export function MissionTypeSelector({ control, disabled = false }: MissionTypeSe
             <SelectContent>
               <SelectItem value="Full">Full</SelectItem>
               <SelectItem value="Part">Part</SelectItem>
+              <SelectItem value="Support">Support</SelectItem>
             </SelectContent>
           </Select>
           <FormMessage />

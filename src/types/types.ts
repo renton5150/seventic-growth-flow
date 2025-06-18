@@ -1,5 +1,3 @@
-
-
 export type RequestStatus = "pending" | "in progress" | "completed" | "canceled";
 export type WorkflowStatus = "pending_assignment" | "pending_approval" | "in_progress" | "in_review" | "ready" | "completed" | "canceled";
 
@@ -102,7 +100,7 @@ export interface User {
 }
 
 // Mission types
-export type MissionType = "Full" | "Part";
+export type MissionType = "Full" | "Part" | "Support";
 export type MissionStatus = "En cours" | "Fin";
 
 export type TypePrestation = "Call" | "Email marketing" | "Cold email" | "Social selling";
@@ -137,4 +135,3 @@ export interface AppData {
   requests: Request[];
   users: User[];
 }
-

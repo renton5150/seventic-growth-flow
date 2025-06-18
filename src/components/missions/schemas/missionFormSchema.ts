@@ -12,7 +12,7 @@ export const missionFormSchema = z.object({
   description: z.string().optional(),
   startDate: z.date().nullable(),
   endDate: z.date().nullable(),
-  type: z.enum(["Full", "Part"]),
+  type: z.enum(["Full", "Part", "Support"]),
   status: z.enum(["En cours", "Fin"]).default("En cours"),
   objectifMensuelRdv: z.string().optional(),
   typesPrestation: z.array(z.enum(["Call", "Email marketing", "Cold email", "Social selling"])).default([]),
