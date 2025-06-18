@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { DatabaseRequest } from "@/types/types";
 import { TargetingOptional } from "@/types/targeting";
-import { uploadBlacklistFile } from "@/services/database";
+import { uploadBlacklistFile } from "@/services/database/uploadService";
 import { databaseCreationSchema, DatabaseCreationFormData, defaultValues } from "./database-creation/schema";
 
 interface DatabaseCreationFormProps {
