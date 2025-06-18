@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Mission, MissionType } from "@/types/types";
+import { Mission, MissionType, TypePrestation } from "@/types/types";
 import { getMissionName, clearMissionNameCache, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
 // Simple function to check if a mission exists by ID
@@ -237,15 +237,22 @@ export const mapSupaMissionToMission = async (mission: any): Promise<Mission> =>
   
   console.log(`[mapSupaMissionToMission] FINAL name chosen: "${displayName}"`);
 
-  // Parse typesPrestation from jsonb to array
-  let typesPrestation: string[] = [];
+  // Parse and validate typesPrestation from jsonb to array
+  let typesPrestation: TypePrestation[] = [];
   if (mission.types_prestation) {
     try {
+      let prestationArray: string[] = [];
       if (typeof mission.types_prestation === 'string') {
-        typesPrestation = JSON.parse(mission.types_prestation);
+        prestationArray = JSON.parse(mission.types_prestation);
       } else if (Array.isArray(mission.types_prestation)) {
-        typesPrestation = mission.types_prestation;
+        prestationArray = mission.types_prestation;
       }
+      
+      // Validate each string against TypePrestation union type
+      const validPrestations: TypePrestation[] = ["Call", "Email marketing", "Cold email", "Social selling"];
+      typesPrestation = prestationArray.filter((item): item is TypePrestation => 
+        validPrestations.includes(item as TypePrestation)
+      );
     } catch (error) {
       console.error("Erreur lors du parsing de types_prestation:", error);
       typesPrestation = [];
