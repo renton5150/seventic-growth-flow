@@ -4,7 +4,7 @@ import { z } from "zod";
 export const formSchema = z.object({
   title: z.string().min(1, "Le titre est requis"),
   subject: z.string().min(1, "Le sujet est requis"),
-  emailType: z.enum(["Mass email", "LinkedIn outreach", "Newsletter", "Follow-up"]).default("Mass email"),
+  emailType: z.enum(["Mass email", "Cold email", "LinkedIn outreach", "Newsletter", "Follow-up"]).default("Mass email"),
   missionId: z.string().min(1, "La mission est requise"),
   dueDate: z.string().min(1, "La date d'échéance est requise"),
   templateContent: z.string().optional(),

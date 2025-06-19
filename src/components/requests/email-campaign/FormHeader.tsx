@@ -95,6 +95,9 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                   <SelectContent className="bg-white z-50">
                     <SelectItem value="Mass email">Mass email</SelectItem>
                     <SelectItem value="Cold email">Cold email</SelectItem>
+                    <SelectItem value="LinkedIn outreach">LinkedIn outreach</SelectItem>
+                    <SelectItem value="Newsletter">Newsletter</SelectItem>
+                    <SelectItem value="Follow-up">Follow-up</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
