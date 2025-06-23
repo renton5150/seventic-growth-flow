@@ -2,7 +2,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import EmailTestButton from "./EmailTestButton";
-import { AlertCircle, Settings, TestTube } from "lucide-react";
+import { AdminUserTools } from "./AdminUserTools";
+import { AlertCircle, Settings, TestTube, Wrench } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const AdminEmailDiagnostic = () => {
@@ -24,8 +25,9 @@ const AdminEmailDiagnostic = () => {
             <AlertTitle>Instructions de diagnostic</AlertTitle>
             <AlertDescription className="space-y-2">
               <p><strong>1. Test simple d'envoi d'email :</strong> Utilisez le bouton ci-dessous pour tester directement l'envoi via generateLink.</p>
-              <p><strong>2. Vérifiez les logs :</strong> Consultez les logs de la fonction Edge dans Supabase pour voir les détails.</p>
-              <p><strong>3. Configuration SMTP :</strong> Testez la fonction check-smtp-config depuis l'interface Supabase.</p>
+              <p><strong>2. Test SMTP direct :</strong> Testez la connexion directe au serveur SMTP OVH.</p>
+              <p><strong>3. Génération de liens manuels :</strong> Créez des liens d'authentification à partager manuellement.</p>
+              <p><strong>4. Vérifiez les logs :</strong> Consultez les logs des fonctions Edge dans Supabase pour voir les détails.</p>
             </AlertDescription>
           </Alert>
           
@@ -41,12 +43,23 @@ const AdminEmailDiagnostic = () => {
           
           <Separator />
           
+          <div>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              <Wrench className="h-5 w-5" />
+              Outils Avancés
+            </h3>
+            <AdminUserTools />
+          </div>
+          
+          <Separator />
+          
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Étapes suivantes si le test échoue :</h3>
+            <h3 className="text-lg font-semibold">Étapes suivantes si les tests échouent :</h3>
             <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
               <li>Vérifiez les logs de la fonction test-email-simple dans Supabase</li>
-              <li>Testez la fonction check-smtp-config via l'interface Supabase</li>
+              <li>Testez la fonction test-smtp-direct pour vérifier la connectivité OVH</li>
               <li>Vérifiez la configuration SMTP dans les paramètres Supabase Auth</li>
+              <li>Utilisez la génération manuelle de liens comme solution temporaire</li>
               <li>Testez avec un autre email pour éliminer les problèmes spécifiques à un domaine</li>
             </ol>
           </div>
