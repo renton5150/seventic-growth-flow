@@ -1149,6 +1149,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_invitations: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          invitation_token: string
+          is_used: boolean | null
+          name: string
+          role: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          invitation_token: string
+          is_used?: boolean | null
+          name: string
+          role: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invitation_token?: string
+          is_used?: boolean | null
+          name?: string
+          role?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       work_schedule_notifications: {
         Row: {
           created_at: string

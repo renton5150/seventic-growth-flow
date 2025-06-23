@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
-import { InviteUserDialog } from "./InviteUserDialog";
+import { NewInviteUserDialog } from "./NewInviteUserDialog";
 import AdminEmailDiagnostic from "./AdminEmailDiagnostic";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ChevronDown, RefreshCw } from "lucide-react";
@@ -15,7 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
 
 interface UserManagementTabsProps {
   onUserDataChange?: () => void;
@@ -31,12 +30,11 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
-    staleTime: 30000, // Increase stale time to 30 seconds
-    gcTime: 300000,   // Increase cache time to 5 minutes
+    staleTime: 30000,
+    gcTime: 300000,
     retry: 1,
   });
 
-  // Optimized refetch with debounce
   const handleRefresh = useCallback(async () => {
     if (isRefreshingRef.current) {
       return;
@@ -47,21 +45,18 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
     try {
       await refetch();
       
-      // Notify parent component after a delay
       if (onUserDataChange) {
         setTimeout(() => onUserDataChange(), 300);
       }
     } catch (error) {
       console.error("Error refreshing:", error);
     } finally {
-      // Limit refresh frequency
       setTimeout(() => {
         isRefreshingRef.current = false;
       }, 2000);
     }
   }, [refetch, onUserDataChange]);
 
-  // First load only
   useEffect(() => {
     if (!initialLoadDoneRef.current && !isLoading && users.length > 0) {
       initialLoadDoneRef.current = true;
@@ -74,13 +69,11 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   });
 
   const handleInviteClick = (role: UserRole) => {
-    // Set role first, then open dialog after a small delay
     setInviteRole(role);
     setTimeout(() => setIsInviteDialogOpen(true), 50);
   };
 
   const handleUserInvited = async () => {
-    // Wait before refreshing to avoid freezing
     setTimeout(() => {
       handleRefresh();
     }, 1000);
@@ -180,7 +173,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
         </TabsContent>
       </Tabs>
 
-      <InviteUserDialog 
+      <NewInviteUserDialog 
         open={isInviteDialogOpen} 
         onOpenChange={setIsInviteDialogOpen} 
         defaultRole={inviteRole}

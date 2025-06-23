@@ -1,92 +1,208 @@
-
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/contexts/auth";
+
+// Pages
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
-import Planning from "./pages/Planning";
-import WorkSchedule from "./pages/WorkSchedule";
 import Missions from "./pages/Missions";
 import EmailCampaignRequest from "./pages/EmailCampaignRequest";
-import EmailCampaignEdit from "./pages/EmailCampaignEdit";
 import DatabaseCreationRequest from "./pages/DatabaseCreationRequest";
-import DatabaseCreationEdit from "./pages/DatabaseCreationEdit";
 import LinkedInScrapingRequest from "./pages/LinkedInScrapingRequest";
-import LinkedInScrapingEdit from "./pages/LinkedInScrapingEdit";
 import RequestDetails from "./pages/RequestDetails";
+import EmailCampaignEdit from "./pages/EmailCampaignEdit";
+import DatabaseCreationEdit from "./pages/DatabaseCreationEdit";
+import LinkedInScrapingEdit from "./pages/LinkedInScrapingEdit";
 import AdminUsers from "./pages/AdminUsers";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminDashboardSimple from "./pages/AdminDashboardSimple";
-import AdminDashboardNew from "./pages/AdminDashboardNew";
 import AdminMissions from "./pages/AdminMissions";
 import GrowthDashboard from "./pages/GrowthDashboard";
 import Archives from "./pages/Archives";
+import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
+import Calendar from "./pages/Calendar";
+import Planning from "./pages/Planning";
+import CRA from "./pages/CRA";
+import WorkSchedule from "./pages/WorkSchedule";
+import AIDashboard from "./pages/AIDashboard";
 import Databases from "./pages/Databases";
 import EmailPlatforms from "./pages/EmailPlatforms";
 import AcelleEmailCampaigns from "./pages/AcelleEmailCampaigns";
-import AIDashboard from "./pages/AIDashboard";
-import CRA from "./pages/CRA";
-import Calendar from "./pages/Calendar";
-import AuthCallback from "./pages/AuthCallback";
-import NotFound from "./pages/NotFound";
+import InviteSignup from "./pages/InviteSignup";
 
-const queryClient = new QueryClient();
+// Components
+import { ProtectedRoute } from "./components/layout/ProtectedRoute";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <BrowserRouter>
+      <ThemeProvider attribute="class" defaultTheme="light">
+        <TooltipProvider>
           <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/auth-callback" element={<AuthCallback />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/planning" element={<Planning />} />
-              <Route path="/work-schedule" element={<WorkSchedule />} />
-              <Route path="/missions" element={<Missions />} />
-              <Route path="/requests/email/new" element={<EmailCampaignRequest />} />
-              <Route path="/requests/database/new" element={<DatabaseCreationRequest />} />
-              <Route path="/requests/linkedin/new" element={<LinkedInScrapingRequest />} />
-              <Route path="/email-campaign" element={<EmailCampaignRequest />} />
-              <Route path="/email-campaign/edit/:id" element={<EmailCampaignEdit />} />
-              <Route path="/database-creation" element={<DatabaseCreationRequest />} />
-              <Route path="/database-creation/edit/:id" element={<DatabaseCreationEdit />} />
-              <Route path="/linkedin-scraping" element={<LinkedInScrapingRequest />} />
-              <Route path="/linkedin-scraping/edit/:id" element={<LinkedInScrapingEdit />} />
-              <Route path="/request/:requestId" element={<RequestDetails />} />
-              <Route path="/requests/email/:requestId" element={<RequestDetails />} />
-              <Route path="/requests/database/:requestId" element={<RequestDetails />} />
-              <Route path="/requests/linkedin/:requestId" element={<RequestDetails />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin-dashboard-simple" element={<AdminDashboardSimple />} />
-              <Route path="/admin-dashboard-new" element={<AdminDashboardNew />} />
-              <Route path="/admin/missions" element={<AdminMissions />} />
-              <Route path="/growth" element={<GrowthDashboard />} />
-              <Route path="/growth-dashboard" element={<GrowthDashboard />} />
-              <Route path="/archives" element={<Archives />} />
-              <Route path="/databases" element={<Databases />} />
-              <Route path="/email-platforms" element={<EmailPlatforms />} />
-              <Route path="/acelle-campaigns" element={<AcelleEmailCampaigns />} />
-              <Route path="/ai-dashboard" element={<AIDashboard />} />
-              <Route path="/cra" element={<CRA />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Router>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/auth-callback" element={<AuthCallback />} />
+                <Route path="/invite/:token" element={<InviteSignup />} />
+                <Route path="/unauthorized" element={<Unauthorized />} />
+
+                {/* Protected routes */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/missions" element={
+                  <ProtectedRoute>
+                    <Missions />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/request/email-campaign" element={
+                  <ProtectedRoute>
+                    <EmailCampaignRequest />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/request/database-creation" element={
+                  <ProtectedRoute>
+                    <DatabaseCreationRequest />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/request/linkedin-scraping" element={
+                  <ProtectedRoute>
+                    <LinkedInScrapingRequest />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/request/:id" element={
+                  <ProtectedRoute>
+                    <RequestDetails />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/request/:id/edit" element={
+                  <ProtectedRoute>
+                    <EmailCampaignEdit />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/request/:id/edit-database" element={
+                  <ProtectedRoute>
+                    <DatabaseCreationEdit />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/request/:id/edit-linkedin" element={
+                  <ProtectedRoute>
+                    <LinkedInScrapingEdit />
+                  </ProtectedRoute>
+                } />
+
+                {/* Admin routes */}
+                <Route path="/admin/users" element={
+                  <ProtectedRoute requiredRoles={['admin']}>
+                    <AdminUsers />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/admin/missions" element={
+                  <ProtectedRoute requiredRoles={['admin']}>
+                    <AdminMissions />
+                  </ProtectedRoute>
+                } />
+
+                {/* Growth routes */}
+                <Route path="/growth" element={
+                  <ProtectedRoute requiredRoles={['growth', 'admin']}>
+                    <GrowthDashboard />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/archives" element={
+                  <ProtectedRoute requiredRoles={['growth', 'admin']}>
+                    <Archives />
+                  </ProtectedRoute>
+                } />
+
+                {/* Other protected routes */}
+                <Route path="/calendar" element={
+                  <ProtectedRoute>
+                    <Calendar />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/planning" element={
+                  <ProtectedRoute>
+                    <Planning />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/cra" element={
+                  <ProtectedRoute>
+                    <CRA />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/work-schedule" element={
+                  <ProtectedRoute>
+                    <WorkSchedule />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/ai-dashboard" element={
+                  <ProtectedRoute>
+                    <AIDashboard />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/databases" element={
+                  <ProtectedRoute>
+                    <Databases />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/email-platforms" element={
+                  <ProtectedRoute>
+                    <EmailPlatforms />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/acelle-campaigns" element={
+                  <ProtectedRoute>
+                    <AcelleEmailCampaigns />
+                  </ProtectedRoute>
+                } />
+
+                {/* Catch all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Router>
+            <Toaster />
           </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
