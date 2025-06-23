@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -122,26 +123,26 @@ function App() {
 
                 {/* Admin routes */}
                 <Route path="/admin/users" element={
-                  <ProtectedRoute requiredRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin']}>
                     <AdminUsers />
                   </ProtectedRoute>
                 } />
                 
                 <Route path="/admin/missions" element={
-                  <ProtectedRoute requiredRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin']}>
                     <AdminMissions />
                   </ProtectedRoute>
                 } />
 
                 {/* Growth routes */}
                 <Route path="/growth" element={
-                  <ProtectedRoute requiredRoles={['growth', 'admin']}>
+                  <ProtectedRoute allowedRoles={['growth', 'admin']}>
                     <GrowthDashboard />
                   </ProtectedRoute>
                 } />
                 
                 <Route path="/archives" element={
-                  <ProtectedRoute requiredRoles={['growth', 'admin']}>
+                  <ProtectedRoute allowedRoles={['growth', 'admin']}>
                     <Archives />
                   </ProtectedRoute>
                 } />
