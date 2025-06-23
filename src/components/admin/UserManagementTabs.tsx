@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
 import { InviteUserDialog } from "./InviteUserDialog";
-import { AdminEmailDiagnostic } from "./AdminEmailDiagnostic";
+import AdminEmailDiagnostic from "./AdminEmailDiagnostic";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ChevronDown, RefreshCw } from "lucide-react";
 import { User, UserRole } from "@/types/types";
