@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
 import { InviteUserDialog } from "./InviteUserDialog";
+import { AdminEmailDiagnostic } from "./AdminEmailDiagnostic";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ChevronDown, RefreshCw } from "lucide-react";
 import { User, UserRole } from "@/types/types";
@@ -102,6 +103,9 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
             <TabsTrigger value="admin" className="border-blue-300 data-[state=active]:border-blue-500 data-[state=active]:bg-blue-100">
               Administrateurs
             </TabsTrigger>
+            <TabsTrigger value="diagnostic" className="border-red-300 data-[state=active]:border-red-500 data-[state=active]:bg-red-100">
+              Diagnostic Email
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex gap-2">
@@ -139,12 +143,40 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
           </div>
         </div>
 
-        <TabsContent value={activeTab} className="mt-4">
+        <TabsContent value="all" className="mt-4">
           <UsersTable 
             users={filteredUsers} 
             isLoading={isLoading} 
             onRefresh={handleRefresh}
           />
+        </TabsContent>
+
+        <TabsContent value="sdr" className="mt-4">
+          <UsersTable 
+            users={filteredUsers} 
+            isLoading={isLoading} 
+            onRefresh={handleRefresh}
+          />
+        </TabsContent>
+
+        <TabsContent value="growth" className="mt-4">
+          <UsersTable 
+            users={filteredUsers} 
+            isLoading={isLoading} 
+            onRefresh={handleRefresh}
+          />
+        </TabsContent>
+
+        <TabsContent value="admin" className="mt-4">
+          <UsersTable 
+            users={filteredUsers} 
+            isLoading={isLoading} 
+            onRefresh={handleRefresh}
+          />
+        </TabsContent>
+
+        <TabsContent value="diagnostic" className="mt-4">
+          <AdminEmailDiagnostic />
         </TabsContent>
       </Tabs>
 
