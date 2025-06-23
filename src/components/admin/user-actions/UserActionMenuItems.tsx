@@ -4,9 +4,9 @@ import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuS
 import { User, UserRole } from "@/types/types";
 import { toast } from "sonner";
 import { updateUserRole } from "@/services/user/userManagement";
+import { resendInvitation } from "@/services/user/userInvitation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface UserActionMenuItemsProps {
   user: User;
@@ -26,62 +26,44 @@ export const UserActionMenuItems = ({
   const handleResendInvitation = async () => {
     if (isSendingInvite) return;
     
-    // Toast persistant qui sera mis à jour
     const toastId = toast.loading(`Envoi d'une invitation à ${user.email}...`);
     
     try {
       setIsSendingInvite(true);
-      console.log("Début du processus de réinitialisation pour:", user.email);
+      console.log("Début du processus d'invitation pour:", user.email);
       
-      // Créer une URL de redirection claire avec tous les paramètres nécessaires
-      const origin = window.location.origin;
-      const redirectUrl = `${origin}/reset-password?type=invite&email=${encodeURIComponent(user.email)}`;
+      const result = await resendInvitation(user.email);
       
-      console.log("URL de redirection pour réinitialisation:", redirectUrl);
-      
-      // Utiliser la méthode resetPasswordForEmail avec une durée de validité plus longue
-      const { data, error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: redirectUrl,
-      });
-      
-      console.log("Résultat de resetPasswordForEmail:", { data, error });
-      
-      if (error) {
-        toast.error("Erreur lors de l'envoi", {
-          id: toastId,
-          description: error.message || "Une erreur est survenue"
-        });
-        
-        console.error("Échec de l'envoi de l'email de réinitialisation:", {
-          email: user.email,
-          error: error
-        });
-      } else {
-        // Mise à jour du toast en succès
+      if (result.success) {
         toast.success("Invitation envoyée", {
           id: toastId,
-          description: `Un email de réinitialisation a été envoyé à ${user.email}`
+          description: `Un email d'invitation a été envoyé à ${user.email}`
         });
         
-        // Détails en console pour le débogage
-        console.log("Email de réinitialisation envoyé avec succès à:", user.email);
-        
-        // Attendre avant de notifier le parent
+        console.log("Invitation envoyée avec succès à:", user.email);
         setTimeout(() => onActionComplete(), 300);
+      } else {
+        toast.error("Erreur lors de l'envoi", {
+          id: toastId,
+          description: result.error || "Une erreur est survenue"
+        });
+        
+        console.error("Échec de l'envoi de l'invitation:", {
+          email: user.email,
+          error: result.error
+        });
       }
     } catch (error) {
-      console.error("Exception lors de l'envoi de l'email de réinitialisation:", error);
+      console.error("Exception lors de l'envoi de l'invitation:", error);
       toast.error("Erreur système", {
         id: toastId,
         description: "Une erreur système est survenue lors de l'envoi"
       });
     } finally {
-      // Réinitialiser l'état d'envoi après un court délai
       setTimeout(() => setIsSendingInvite(false), 300);
     }
   };
   
-  // Fonction pour changer directement le rôle
   const handleDirectRoleChange = async (newRole: UserRole) => {
     if (newRole === user.role || isChangingRole) return;
     
@@ -93,13 +75,11 @@ export const UserActionMenuItems = ({
       const { success, error } = await updateUserRole(user.id, newRole);
       
       if (success) {
-        // Mise à jour du toast en succès
         toast.success("Rôle modifié", {
           id: toastId,
           description: `Le rôle de ${user.email} a été modifié en ${newRole}`
         });
         
-        // Attendre avant de notifier le parent
         setTimeout(() => onActionComplete(), 300);
       } else {
         toast.error("Erreur", {
@@ -114,12 +94,10 @@ export const UserActionMenuItems = ({
         description: "Une erreur système est survenue lors de la modification du rôle"
       });
     } finally {
-      // Réinitialiser l'état après un court délai
       setTimeout(() => setIsChangingRole(false), 300);
     }
   };
   
-  // Obtenir l'icône appropriée pour chaque rôle
   const getRoleIcon = (role: UserRole) => {
     switch (role) {
       case "admin": return <Shield className="h-4 w-4 mr-2" />;
