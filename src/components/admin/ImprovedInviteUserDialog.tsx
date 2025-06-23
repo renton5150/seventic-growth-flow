@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -109,8 +108,6 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
       if (!response.success) {
         console.error("Erreur lors de l'opération:", response.error);
         toast.error(response.error || "Erreur lors de l'opération");
-      } else if (onUserInvited) {
-        setTimeout(() => onUserInvited(), 500);
       }
     } catch (error) {
       console.error("Exception lors de l'opération:", error);
@@ -150,15 +147,12 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     }
   };
 
+  // MODIFICATION CRITIQUE : Ne plus fermer automatiquement la dialog
   const handleClose = () => {
     setFormData({ email: "", name: "", role: defaultRole });
     setResult(null);
     setCreationMode('direct');
     onOpenChange(false);
-    
-    if (onUserInvited) {
-      onUserInvited();
-    }
   };
 
   const handleNewOperation = () => {
@@ -167,10 +161,10 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     setCreationMode('direct');
   };
 
-  // Affichage du succès avec toutes les informations - RESTE PERMANENT
+  // Affichage du succès avec toutes les informations - LA DIALOG RESTE OUVERTE
   if (result?.success) {
     return (
-      <Dialog open={open} onOpenChange={() => {}} modal={true}>
+      <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -182,7 +176,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <Alert className="border-green-200 bg-green-50">
               <Check className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
@@ -245,14 +239,16 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
             )}
 
             {result.actionLink && (
-              <div className="space-y-2">
-                <Label className="text-base font-semibold text-blue-800">🔗 LIEN D'ACCÈS DIRECT (PERMANENT)</Label>
-                <div className="p-4 border-2 border-blue-300 rounded-lg bg-blue-50">
-                  <div className="flex space-x-2 mb-3">
+              <div className="space-y-3">
+                <Label className="text-lg font-bold text-blue-900 bg-blue-100 px-3 py-2 rounded-lg block">
+                  🔗 LIEN D'ACCÈS PERMANENT - COPIEZ-LE MAINTENANT !
+                </Label>
+                <div className="p-6 border-4 border-blue-500 rounded-lg bg-blue-50 shadow-lg">
+                  <div className="flex space-x-2 mb-4">
                     <Input
                       value={result.actionLink}
                       readOnly
-                      className="font-mono text-xs bg-white border-blue-200 focus:border-blue-400"
+                      className="font-mono text-xs bg-white border-2 border-blue-400 focus:border-blue-600 shadow-inner"
                     />
                     <Button
                       type="button"
@@ -260,7 +256,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
                       size="icon"
                       onClick={handleCopyLink}
                       title="Copier le lien"
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-blue-600 hover:bg-blue-700 shadow-md"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -270,13 +266,18 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
                       size="icon"
                       onClick={handleOpenLink}
                       title="Ouvrir le lien"
+                      className="border-blue-400 hover:bg-blue-100"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-sm text-blue-700 font-medium">
-                    ⚠️ IMPORTANT : Ce lien reste affiché en permanence. Prenez le temps de le copier !
-                  </p>
+                  <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded">
+                    <p className="text-sm text-yellow-800 font-semibold">
+                      ⚠️ ATTENTION : Cette fenêtre reste ouverte pour que vous puissiez copier le lien !
+                      <br />
+                      ✅ Cliquez sur "Copier" puis fermez manuellement cette fenêtre.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -299,12 +300,12 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
               </AlertDescription>
             </Alert>
 
-            <div className="flex justify-between gap-3 pt-4">
-              <Button variant="outline" onClick={handleNewOperation}>
+            <div className="flex justify-between gap-3 pt-6 border-t">
+              <Button variant="outline" onClick={handleNewOperation} className="flex-1">
                 Nouvelle opération
               </Button>
-              <Button onClick={handleClose} className="bg-green-600 hover:bg-green-700">
-                Fermer
+              <Button onClick={handleClose} className="bg-red-600 hover:bg-red-700 flex-1">
+                FERMER MANUELLEMENT
               </Button>
             </div>
           </div>
