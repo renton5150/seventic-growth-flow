@@ -1,5 +1,3 @@
-
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,7 +35,6 @@ import AIDashboard from "./pages/AIDashboard";
 import Databases from "./pages/Databases";
 import EmailPlatforms from "./pages/EmailPlatforms";
 import AcelleEmailCampaigns from "./pages/AcelleEmailCampaigns";
-import InviteSignup from "./pages/InviteSignup";
 
 // Components
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
@@ -65,7 +62,6 @@ function App() {
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth-callback" element={<AuthCallback />} />
-                <Route path="/invite/:token" element={<InviteSignup />} />
                 <Route path="/unauthorized" element={<Unauthorized />} />
 
                 {/* Protected routes */}
@@ -217,4 +213,3 @@ function App() {
 }
 
 export default App;
-
