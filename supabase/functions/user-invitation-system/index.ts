@@ -13,7 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { action, ...params } = await req.json()
+    const body = await req.json()
+    const { action, ...params } = body
     
     console.log('=== USER INVITATION SYSTEM ===')
     console.log('Action:', action)
@@ -29,16 +30,33 @@ serve(async (req) => {
       case 'create_invitation': {
         const { email, name, role, created_by, force_create = false } = params
         
+        if (!email || !name || !role || !created_by) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Paramètres manquants'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          })
+        }
+        
+        console.log('🔍 Vérification invitation existante pour:', email)
+        
         // Vérifier s'il existe déjà une invitation active pour cet email
-        const { data: existingInvitation } = await supabaseAdmin
+        const { data: existingInvitation, error: invitationError } = await supabaseAdmin
           .from('user_invitations')
           .select('*')
           .eq('email', email)
           .eq('is_used', false)
           .gt('expires_at', new Date().toISOString())
-          .single()
+          .maybeSingle()
+        
+        if (invitationError) {
+          console.error('❌ Erreur vérification invitation:', invitationError)
+        }
         
         if (existingInvitation && !force_create) {
+          console.log('⚠️ Invitation active trouvée')
           return new Response(JSON.stringify({
             success: false,
             error: 'active_invitation_exists',
@@ -46,34 +64,48 @@ serve(async (req) => {
             message: 'Une invitation active existe déjà pour cet email'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+            status: 200,
           })
         }
         
-        // Vérifier si l'utilisateur existe déjà
-        const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers({
-          filter: `email.eq.${email}`
-        })
+        console.log('🔍 Vérification utilisateur existant pour:', email)
         
-        const userExists = existingUser && existingUser.users && existingUser.users.length > 0
+        // Vérifier si l'utilisateur existe déjà
+        let userExists = false
+        try {
+          const { data: existingUser, error: userError } = await supabaseAdmin.auth.admin.listUsers()
+          
+          if (userError) {
+            console.error('❌ Erreur vérification utilisateur:', userError)
+          } else if (existingUser && existingUser.users) {
+            userExists = existingUser.users.some(user => user.email === email)
+          }
+        } catch (error) {
+          console.error('❌ Exception vérification utilisateur:', error)
+          // Continue même en cas d'erreur de vérification utilisateur
+        }
         
         if (userExists && !force_create) {
+          console.log('⚠️ Utilisateur existant trouvé')
           return new Response(JSON.stringify({
             success: false,
             error: 'user_already_exists',
-            message: 'Un utilisateur avec cet email existe déjà. Utilisez l\'option "Forcer la création" si vous voulez créer une nouvelle invitation.'
+            message: 'Un utilisateur avec cet email existe déjà'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+            status: 200,
           })
         }
         
         // Générer un token unique
         const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36)
         
+        console.log('🔧 Force create:', force_create)
+        
         // Si force_create est activé, marquer les anciennes invitations comme expirées
-        if (force_create) {
-          await supabaseAdmin
+        if (force_create && existingInvitation) {
+          console.log('🔄 Expiration des anciennes invitations')
+          const { error: updateError } = await supabaseAdmin
             .from('user_invitations')
             .update({ 
               expires_at: new Date().toISOString(),
@@ -82,24 +114,43 @@ serve(async (req) => {
             })
             .eq('email', email)
             .eq('is_used', false)
+          
+          if (updateError) {
+            console.error('❌ Erreur expiration anciennes invitations:', updateError)
+          }
         }
         
+        console.log('➕ Création nouvelle invitation')
+        
         // Créer l'invitation
-        const { data: invitation, error } = await supabaseAdmin
+        const { data: invitation, error: createError } = await supabaseAdmin
           .from('user_invitations')
           .insert({
             email,
             name,
             role,
             invitation_token: token,
-            created_by
+            created_by,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 jours
           })
           .select()
           .single()
         
-        if (error) throw error
+        if (createError) {
+          console.error('❌ Erreur création invitation:', createError)
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Erreur lors de la création de l\'invitation',
+            details: createError.message
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+          })
+        }
         
         const invitationUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/invite/${token}`
+        
+        console.log('✅ Invitation créée avec succès')
         
         return new Response(JSON.stringify({
           success: true,
@@ -207,16 +258,23 @@ serve(async (req) => {
       }
 
       default:
-        throw new Error('Action non supportée')
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Action non supportée'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        })
     }
   } catch (error) {
-    console.error('❌ ERREUR:', error)
+    console.error('❌ ERREUR GLOBALE:', error)
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Erreur inconnue'
+      error: error.message || 'Erreur inconnue',
+      stack: error.stack
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 500,
     })
   }
 })

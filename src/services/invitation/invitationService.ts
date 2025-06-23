@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface CreateInvitationData {
@@ -40,25 +41,38 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
     
     if (error) {
       console.error("❌ Erreur fonction Edge:", error);
-      throw error;
+      return { 
+        success: false, 
+        error: `Erreur de connexion: ${error.message}`,
+        errorType: 'unknown'
+      };
     }
     
-    if (!result || !result.success) {
+    if (!result) {
+      console.error("❌ Aucune réponse de la fonction Edge");
+      return { 
+        success: false, 
+        error: "Aucune réponse du serveur",
+        errorType: 'unknown'
+      };
+    }
+    
+    if (!result.success) {
       console.error("❌ Échec création invitation:", result);
       
       // Déterminer le type d'erreur
       let errorType: 'active_invitation_exists' | 'user_already_exists' | 'unknown' = 'unknown';
-      if (result?.error === 'active_invitation_exists') {
+      if (result.error === 'active_invitation_exists') {
         errorType = 'active_invitation_exists';
-      } else if (result?.error === 'user_already_exists') {
+      } else if (result.error === 'user_already_exists') {
         errorType = 'user_already_exists';
       }
       
       return { 
         success: false, 
-        error: result?.message || result?.error || "Échec création invitation",
+        error: result.message || result.error || "Échec création invitation",
         errorType,
-        existingInvitation: result?.invitation
+        existingInvitation: result.invitation
       };
     }
     
@@ -72,7 +86,11 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("❌ Exception création invitation:", error);
-    return { success: false, error: errorMessage, errorType: 'unknown' };
+    return { 
+      success: false, 
+      error: errorMessage, 
+      errorType: 'unknown' 
+    };
   }
 };
 
