@@ -30,24 +30,51 @@ serve(async (req) => {
     console.log('- SUPABASE_URL:', Deno.env.get('SUPABASE_URL') ? 'Définie' : 'MANQUANTE')
     console.log('- SERVICE_ROLE_KEY:', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? 'Définie' : 'MANQUANTE')
     
-    console.log('Tentative d\'envoi d\'email via generateLink...')
-    
-    // Utiliser directement generateLink pour tester l'envoi d'email
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: email,
-      options: {
-        redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
-      }
+    // Vérifier si l'utilisateur existe
+    console.log('Vérification de l\'existence de l\'utilisateur...')
+    const { data: existingUsers, error: checkError } = await supabaseAdmin.auth.admin.listUsers({
+      filter: `email.eq.${email}`
     })
     
-    console.log('Résultat generateLink:')
-    console.log('- Data:', JSON.stringify(data, null, 2))
-    console.log('- Error:', JSON.stringify(error, null, 2))
+    if (checkError) {
+      console.error('Erreur lors de la vérification:', checkError)
+      throw checkError
+    }
     
-    if (error) {
-      console.error('ERREUR lors de generateLink:', error)
-      throw error
+    const userExists = existingUsers && existingUsers.users && existingUsers.users.length > 0
+    console.log(`Utilisateur existe: ${userExists ? 'OUI' : 'NON'}`)
+    
+    let result
+    
+    if (userExists) {
+      console.log('Envoi d\'un lien de récupération pour utilisateur existant...')
+      // Utilisateur existant - utiliser generateLink
+      result = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email: email,
+        options: {
+          redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
+        }
+      })
+    } else {
+      console.log('Envoi d\'une invitation pour nouvel utilisateur...')
+      // Nouvel utilisateur - utiliser inviteUserByEmail
+      result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite',
+        data: {
+          role: 'sdr',
+          name: email.split('@')[0]
+        }
+      })
+    }
+    
+    console.log('Résultat de l\'envoi d\'email:')
+    console.log('- Data:', JSON.stringify(result.data, null, 2))
+    console.log('- Error:', JSON.stringify(result.error, null, 2))
+    
+    if (result.error) {
+      console.error('ERREUR lors de l\'envoi d\'email:', result.error)
+      throw result.error
     }
     
     console.log('✅ Email envoyé avec succès')
@@ -55,11 +82,15 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Email envoyé avec succès via generateLink',
-      data: data,
+      message: `Email envoyé avec succès pour ${userExists ? 'utilisateur existant' : 'nouvel utilisateur'}`,
+      method: userExists ? 'recovery_link' : 'invitation',
+      data: result.data,
       debug: {
         email_sent_to: email,
-        redirect_url: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery',
+        user_existed: userExists,
+        redirect_url: userExists 
+          ? 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
+          : 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite',
         timestamp: new Date().toISOString()
       }
     }), {
