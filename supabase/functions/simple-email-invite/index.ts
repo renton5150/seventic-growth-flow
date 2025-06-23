@@ -13,9 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const { email, userName, userRole } = await req.json()
+    const { email, userName, userRole, action } = await req.json()
     
     console.log('=== SIMPLE EMAIL INVITE - DÉBUT ===')
+    console.log('Action:', action || 'invite')
     console.log('Email:', email)
     console.log('Nom:', userName)
     console.log('Rôle:', userRole)
@@ -28,26 +29,12 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     )
     
-    // Vérifier si l'utilisateur existe déjà
-    console.log('Vérification existence utilisateur...')
-    const { data: existingUsers, error: checkError } = await supabaseAdmin.auth.admin.listUsers({
-      filter: `email.eq.${email}`
-    })
-    
-    if (checkError) {
-      console.error('Erreur vérification utilisateur:', checkError)
-      throw checkError
-    }
-    
-    const userExists = existingUsers && existingUsers.users && existingUsers.users.length > 0
-    console.log(`Utilisateur existe: ${userExists ? 'OUI' : 'NON'}`)
-    
     let result
     let method
     
-    if (userExists) {
-      console.log('Envoi lien de réinitialisation (utilisateur existant)...')
-      method = 'reset_link'
+    if (action === 'reset_password') {
+      console.log('Génération lien de réinitialisation de mot de passe...')
+      method = 'password_reset'
       
       result = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
@@ -56,33 +43,107 @@ serve(async (req) => {
           redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
         }
       })
-    } else {
-      console.log('Envoi invitation (nouvel utilisateur)...')
-      method = 'invitation'
+    } else if (action === 'create_direct') {
+      console.log('Création directe utilisateur...')
+      method = 'direct_creation'
       
-      result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite',
-        data: {
-          role: userRole || 'sdr',
-          name: userName || email.split('@')[0]
+      // Générer un mot de passe temporaire
+      const tempPassword = Math.random().toString(36).slice(-12) + 'A1!'
+      
+      result = await supabaseAdmin.auth.admin.createUser({
+        email: email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          name: userName || email.split('@')[0],
+          role: userRole || 'sdr'
         }
       })
+      
+      if (result.data.user && !result.error) {
+        // Créer ou mettre à jour le profil
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .upsert({
+            id: result.data.user.id,
+            email: email,
+            name: userName || email.split('@')[0],
+            role: userRole || 'sdr'
+          }, { onConflict: 'id' })
+        
+        if (profileError) {
+          console.error('Erreur création profil:', profileError)
+        }
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Utilisateur créé avec succès',
+          method: method,
+          user: {
+            id: result.data.user.id,
+            email: email,
+            tempPassword: tempPassword
+          },
+          timestamp: new Date().toISOString()
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        })
+      }
+    } else {
+      // Vérifier si l'utilisateur existe déjà
+      console.log('Vérification existence utilisateur...')
+      const { data: existingUsers, error: checkError } = await supabaseAdmin.auth.admin.listUsers({
+        filter: `email.eq.${email}`
+      })
+      
+      if (checkError) {
+        console.error('Erreur vérification utilisateur:', checkError)
+        throw checkError
+      }
+      
+      const userExists = existingUsers && existingUsers.users && existingUsers.users.length > 0
+      console.log(`Utilisateur existe: ${userExists ? 'OUI' : 'NON'}`)
+      
+      if (userExists) {
+        console.log('Envoi lien de réinitialisation (utilisateur existant)...')
+        method = 'reset_link'
+        
+        result = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: email,
+          options: {
+            redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
+          }
+        })
+      } else {
+        console.log('Envoi invitation (nouvel utilisateur)...')
+        method = 'invitation'
+        
+        result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite',
+          data: {
+            role: userRole || 'sdr',
+            name: userName || email.split('@')[0]
+          }
+        })
+      }
     }
     
-    console.log('Résultat envoi email:', JSON.stringify(result, null, 2))
+    console.log('Résultat:', JSON.stringify(result, null, 2))
     
     if (result.error) {
-      console.error('ERREUR envoi email:', result.error)
+      console.error('ERREUR:', result.error)
       throw result.error
     }
     
-    console.log('✅ Email envoyé avec succès via Supabase')
+    console.log('✅ Opération réussie')
     console.log('=== SIMPLE EMAIL INVITE - FIN ===')
     
     return new Response(JSON.stringify({ 
       success: true, 
-      message: `Email envoyé avec succès (${method})`,
-      userExists: userExists,
+      message: `Opération réussie (${method})`,
+      userExists: method === 'reset_link',
       method: method,
       data: result.data,
       timestamp: new Date().toISOString()

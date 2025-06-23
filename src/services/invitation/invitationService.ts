@@ -5,214 +5,154 @@ export interface CreateInvitationData {
   email: string;
   name: string;
   role: 'admin' | 'growth' | 'sdr';
-  force_create?: boolean;
 }
 
 export interface InvitationResponse {
   success: boolean;
   error?: string;
-  errorType?: 'active_invitation_exists' | 'user_already_exists' | 'unknown';
-  invitationUrl?: string;
-  invitation?: any;
+  user?: any;
   userExists?: boolean;
-  existingInvitation?: any;
+  method?: string;
 }
 
-export const createInvitation = async (data: CreateInvitationData): Promise<InvitationResponse> => {
-  try {
-    console.log("🚀 Création invitation:", data);
-    
-    // Récupérer l'utilisateur actuel
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Utilisateur non connecté");
-    }
-    
-    const { data: result, error } = await supabase.functions.invoke('user-invitation-system', {
-      body: {
-        action: 'create_invitation',
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        created_by: user.id,
-        force_create: data.force_create || false
-      }
-    });
-    
-    // Si il y a une erreur de transport/réseau
-    if (error) {
-      console.error("❌ Erreur fonction Edge:", error);
-      return { 
-        success: false, 
-        error: `Erreur de connexion: ${error.message}`,
-        errorType: 'unknown'
-      };
-    }
-    
-    // Si aucune réponse n'est reçue
-    if (!result) {
-      console.error("❌ Aucune réponse de la fonction Edge");
-      return { 
-        success: false, 
-        error: "Aucune réponse du serveur",
-        errorType: 'unknown'
-      };
-    }
-    
-    console.log("📥 Réponse reçue:", result);
-    
-    // La réponse est valide, traiter le contenu
-    if (!result.success) {
-      console.log("⚠️ Réponse avec success=false:", result);
-      
-      // Déterminer le type d'erreur métier
-      let errorType: 'active_invitation_exists' | 'user_already_exists' | 'unknown' = 'unknown';
-      if (result.error === 'active_invitation_exists') {
-        errorType = 'active_invitation_exists';
-      } else if (result.error === 'user_already_exists') {
-        errorType = 'user_already_exists';
-      }
-      
-      return { 
-        success: false, 
-        error: result.message || result.error || "Échec création invitation",
-        errorType,
-        existingInvitation: result.invitation
-      };
-    }
-    
-    console.log("✅ Invitation créée avec succès");
-    return {
-      success: true,
-      invitationUrl: result.invitationUrl,
-      invitation: result.invitation,
-      userExists: result.userExists
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-    console.error("❌ Exception création invitation:", error);
-    return { 
-      success: false, 
-      error: errorMessage, 
-      errorType: 'unknown' 
-    };
-  }
-};
-
-// Nouvelle fonction pour créer directement un utilisateur
-export const createUserDirectly = async (data: CreateInvitationData): Promise<InvitationResponse> => {
+// Créer un utilisateur directement avec mot de passe temporaire
+export const createUserDirectly = async (data: CreateInvitationData): Promise<InvitationResponse & { tempPassword?: string }> => {
   try {
     console.log("🚀 Création utilisateur direct:", data);
     
-    // Récupérer l'utilisateur actuel
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Utilisateur non connecté");
-    }
-    
-    const { data: result, error } = await supabase.functions.invoke('user-invitation-system', {
+    const { data: result, error } = await supabase.functions.invoke('simple-email-invite', {
       body: {
-        action: 'create_user_directly',
         email: data.email,
-        name: data.name,
-        role: data.role,
-        created_by: user.id
+        userName: data.name,
+        userRole: data.role,
+        action: 'create_direct'
       }
     });
     
     if (error) {
       console.error("❌ Erreur fonction Edge:", error);
-      return { 
-        success: false, 
-        error: `Erreur de connexion: ${error.message}`,
-        errorType: 'unknown'
+      return {
+        success: false,
+        error: `Erreur de connexion: ${error.message}`
       };
     }
     
-    if (!result) {
-      console.error("❌ Aucune réponse de la fonction Edge");
-      return { 
-        success: false, 
-        error: "Aucune réponse du serveur",
-        errorType: 'unknown'
-      };
-    }
-    
-    console.log("📥 Réponse création directe:", result);
-    
-    if (!result.success) {
-      return { 
-        success: false, 
-        error: result.message || result.error || "Échec création utilisateur",
-        errorType: 'unknown'
+    if (!result?.success) {
+      console.error("❌ Échec création utilisateur:", result);
+      return {
+        success: false,
+        error: result?.error || "Échec création utilisateur"
       };
     }
     
     console.log("✅ Utilisateur créé directement avec succès");
     return {
       success: true,
-      invitation: result.user
+      user: result.user,
+      tempPassword: result.user?.tempPassword
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("❌ Exception création utilisateur direct:", error);
-    return { 
-      success: false, 
-      error: errorMessage, 
-      errorType: 'unknown' 
-    };
+    return { success: false, error: errorMessage };
   }
 };
 
-export const validateInvitationToken = async (token: string) => {
+// Envoyer une invitation par email (API Supabase native)
+export const createInvitation = async (data: CreateInvitationData): Promise<InvitationResponse> => {
   try {
-    const { data: result, error } = await supabase.functions.invoke('user-invitation-system', {
+    console.log("🚀 Envoi invitation email:", data);
+    
+    const { data: result, error } = await supabase.functions.invoke('simple-email-invite', {
       body: {
-        action: 'validate_token',
-        token
+        email: data.email,
+        userName: data.name,
+        userRole: data.role,
+        action: 'invite'
       }
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error("❌ Erreur fonction Edge:", error);
+      return {
+        success: false,
+        error: `Erreur de connexion: ${error.message}`
+      };
+    }
     
-    return result;
+    if (!result?.success) {
+      console.error("❌ Échec envoi invitation:", result);
+      return {
+        success: false,
+        error: result?.error || "Échec envoi invitation"
+      };
+    }
+    
+    console.log("✅ Invitation envoyée avec succès");
+    return {
+      success: true,
+      userExists: result.userExists,
+      method: result.method
+    };
   } catch (error) {
-    console.error("❌ Erreur validation token:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error("❌ Exception envoi invitation:", error);
+    return { success: false, error: errorMessage };
   }
+};
+
+// Réinitialiser le mot de passe d'un utilisateur existant
+export const resetUserPassword = async (email: string): Promise<InvitationResponse> => {
+  try {
+    console.log("🚀 Réinitialisation mot de passe:", email);
+    
+    const { data: result, error } = await supabase.functions.invoke('simple-email-invite', {
+      body: {
+        email: email,
+        action: 'reset_password'
+      }
+    });
+    
+    if (error) {
+      console.error("❌ Erreur fonction Edge:", error);
+      return {
+        success: false,
+        error: `Erreur de connexion: ${error.message}`
+      };
+    }
+    
+    if (!result?.success) {
+      console.error("❌ Échec réinitialisation:", result);
+      return {
+        success: false,
+        error: result?.error || "Échec réinitialisation mot de passe"
+      };
+    }
+    
+    console.log("✅ Lien de réinitialisation envoyé avec succès");
+    return {
+      success: true,
+      method: result.method
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error("❌ Exception réinitialisation mot de passe:", error);
+    return { success: false, error: errorMessage };
+  }
+};
+
+// Pour compatibilité - fonctions conservées mais simplifiées
+export const validateInvitationToken = async (token: string) => {
+  console.log("validateInvitationToken - fonction legacy, non utilisée");
+  return { success: false, error: "Fonction non disponible" };
 };
 
 export const completeSignup = async (token: string, password: string) => {
-  try {
-    const { data: result, error } = await supabase.functions.invoke('user-invitation-system', {
-      body: {
-        action: 'complete_signup',
-        token,
-        password
-      }
-    });
-    
-    if (error) throw error;
-    
-    return result;
-  } catch (error) {
-    console.error("❌ Erreur finalisation inscription:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
-  }
+  console.log("completeSignup - fonction legacy, non utilisée");
+  return { success: false, error: "Fonction non disponible" };
 };
 
 export const getAllInvitations = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('user_invitations')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    
-    return { success: true, data: data || [] };
-  } catch (error) {
-    console.error("❌ Erreur récupération invitations:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
-  }
+  console.log("getAllInvitations - fonction legacy, non utilisée");
+  return { success: true, data: [] };
 };
