@@ -13,12 +13,29 @@ export interface InvitationResponse {
   user?: any;
   userExists?: boolean;
   method?: string;
+  tempPassword?: string;
 }
 
 // Créer un utilisateur directement avec mot de passe temporaire
-export const createUserDirectly = async (data: CreateInvitationData): Promise<InvitationResponse & { tempPassword?: string }> => {
+export const createUserDirectly = async (data: CreateInvitationData): Promise<InvitationResponse> => {
   try {
     console.log("🚀 Création utilisateur direct:", data);
+    
+    if (!data.email || !data.email.includes('@')) {
+      console.error("❌ Email invalide:", data.email);
+      return {
+        success: false,
+        error: 'Email invalide'
+      };
+    }
+    
+    if (!data.name || data.name.trim() === '') {
+      console.error("❌ Nom manquant");
+      return {
+        success: false,
+        error: 'Le nom est obligatoire'
+      };
+    }
     
     const { data: result, error } = await supabase.functions.invoke('simple-email-invite', {
       body: {
@@ -29,6 +46,8 @@ export const createUserDirectly = async (data: CreateInvitationData): Promise<In
       }
     });
     
+    console.log("📥 Réponse fonction Edge:", result);
+    
     if (error) {
       console.error("❌ Erreur fonction Edge:", error);
       return {
@@ -37,7 +56,7 @@ export const createUserDirectly = async (data: CreateInvitationData): Promise<In
       };
     }
     
-    if (!result?.success) {
+    if (!result || !result.success) {
       console.error("❌ Échec création utilisateur:", result);
       return {
         success: false,
@@ -49,12 +68,16 @@ export const createUserDirectly = async (data: CreateInvitationData): Promise<In
     return {
       success: true,
       user: result.user,
-      tempPassword: result.user?.tempPassword
+      tempPassword: result.user?.tempPassword,
+      method: result.method
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("❌ Exception création utilisateur direct:", error);
-    return { success: false, error: errorMessage };
+    return { 
+      success: false, 
+      error: `Erreur système: ${errorMessage}` 
+    };
   }
 };
 
@@ -63,14 +86,24 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
   try {
     console.log("🚀 Envoi invitation email:", data);
     
+    if (!data.email || !data.email.includes('@')) {
+      console.error("❌ Email invalide:", data.email);
+      return {
+        success: false,
+        error: 'Email invalide'
+      };
+    }
+    
     const { data: result, error } = await supabase.functions.invoke('simple-email-invite', {
       body: {
         email: data.email,
-        userName: data.name,
+        userName: data.name || data.email.split('@')[0],
         userRole: data.role,
         action: 'invite'
       }
     });
+    
+    console.log("📥 Réponse fonction Edge:", result);
     
     if (error) {
       console.error("❌ Erreur fonction Edge:", error);
@@ -80,7 +113,7 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
       };
     }
     
-    if (!result?.success) {
+    if (!result || !result.success) {
       console.error("❌ Échec envoi invitation:", result);
       return {
         success: false,
@@ -97,7 +130,10 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("❌ Exception envoi invitation:", error);
-    return { success: false, error: errorMessage };
+    return { 
+      success: false, 
+      error: `Erreur système: ${errorMessage}` 
+    };
   }
 };
 
@@ -106,12 +142,22 @@ export const resetUserPassword = async (email: string): Promise<InvitationRespon
   try {
     console.log("🚀 Réinitialisation mot de passe:", email);
     
+    if (!email || !email.includes('@')) {
+      console.error("❌ Email invalide:", email);
+      return {
+        success: false,
+        error: 'Email invalide'
+      };
+    }
+    
     const { data: result, error } = await supabase.functions.invoke('simple-email-invite', {
       body: {
         email: email,
         action: 'reset_password'
       }
     });
+    
+    console.log("📥 Réponse fonction Edge:", result);
     
     if (error) {
       console.error("❌ Erreur fonction Edge:", error);
@@ -121,7 +167,7 @@ export const resetUserPassword = async (email: string): Promise<InvitationRespon
       };
     }
     
-    if (!result?.success) {
+    if (!result || !result.success) {
       console.error("❌ Échec réinitialisation:", result);
       return {
         success: false,
@@ -137,11 +183,14 @@ export const resetUserPassword = async (email: string): Promise<InvitationRespon
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("❌ Exception réinitialisation mot de passe:", error);
-    return { success: false, error: errorMessage };
+    return { 
+      success: false, 
+      error: `Erreur système: ${errorMessage}` 
+    };
   }
 };
 
-// Pour compatibilité - fonctions conservées mais simplifiées
+// Fonctions de compatibilité (non utilisées mais conservées)
 export const validateInvitationToken = async (token: string) => {
   console.log("validateInvitationToken - fonction legacy, non utilisée");
   return { success: false, error: "Fonction non disponible" };

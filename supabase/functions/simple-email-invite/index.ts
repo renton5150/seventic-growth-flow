@@ -22,34 +22,50 @@ serve(async (req) => {
     console.log('Rôle:', userRole)
     console.log('Timestamp:', new Date().toISOString())
     
+    // Validation des paramètres
+    if (!email || !email.includes('@')) {
+      console.error('❌ Email invalide:', email)
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Email invalide',
+        timestamp: new Date().toISOString()
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      })
+    }
+    
     // Créer client Supabase avec clé admin
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
+      { 
+        auth: { 
+          persistSession: false,
+          autoRefreshToken: false 
+        } 
+      }
     )
     
     let result
     let method
     
     if (action === 'reset_password') {
-      console.log('Génération lien de réinitialisation de mot de passe...')
+      console.log('🔄 Génération lien de réinitialisation de mot de passe...')
       method = 'password_reset'
       
-      // Vérifier d'abord si l'utilisateur existe
-      const { data: existingUsers, error: checkError } = await supabaseAdmin.auth.admin.listUsers({
-        filter: `email.eq.${email}`
-      })
+      // Vérifier si l'utilisateur existe dans auth.users
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
       
-      if (checkError) {
-        console.error('Erreur vérification utilisateur:', checkError)
-        throw checkError
+      if (authError) {
+        console.error('❌ Erreur récupération utilisateurs auth:', authError)
+        throw authError
       }
       
-      const userExists = existingUsers && existingUsers.users && existingUsers.users.length > 0
+      const userExists = authUsers.users.some(user => user.email === email)
       
       if (!userExists) {
-        console.error('Utilisateur non trouvé pour reset password:', email)
+        console.error('❌ Utilisateur non trouvé pour reset password:', email)
         return new Response(JSON.stringify({ 
           success: false, 
           error: 'Utilisateur non trouvé',
@@ -67,12 +83,17 @@ serve(async (req) => {
           redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
         }
       })
+      
     } else if (action === 'create_direct') {
-      console.log('Création directe utilisateur...')
+      console.log('👤 Création directe utilisateur...')
       method = 'direct_creation'
       
-      // Générer un mot de passe temporaire
-      const tempPassword = Math.random().toString(36).slice(-12) + 'A1!'
+      // Générer un mot de passe temporaire sécurisé
+      const tempPassword = Math.random().toString(36).slice(-8) + 
+                          Math.random().toString(36).slice(-8).toUpperCase() + 
+                          Math.floor(Math.random() * 100) + '!'
+      
+      console.log('🔐 Mot de passe temporaire généré')
       
       result = await supabaseAdmin.auth.admin.createUser({
         email: email,
@@ -85,6 +106,8 @@ serve(async (req) => {
       })
       
       if (result.data.user && !result.error) {
+        console.log('✅ Utilisateur créé dans auth, création du profil...')
+        
         // Créer ou mettre à jour le profil
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
@@ -92,11 +115,14 @@ serve(async (req) => {
             id: result.data.user.id,
             email: email,
             name: userName || email.split('@')[0],
-            role: userRole || 'sdr'
+            role: userRole || 'sdr',
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || email.split('@')[0])}&background=7E69AB&color=fff`
           }, { onConflict: 'id' })
         
         if (profileError) {
-          console.error('Erreur création profil:', profileError)
+          console.error('⚠️ Erreur création profil (mais utilisateur créé):', profileError)
+        } else {
+          console.log('✅ Profil créé avec succès')
         }
         
         return new Response(JSON.stringify({ 
@@ -114,23 +140,24 @@ serve(async (req) => {
           status: 200,
         })
       }
+      
     } else {
       // Action 'invite' par défaut
-      console.log('Vérification existence utilisateur...')
-      const { data: existingUsers, error: checkError } = await supabaseAdmin.auth.admin.listUsers({
-        filter: `email.eq.${email}`
-      })
+      console.log('📧 Vérification existence utilisateur pour invitation...')
       
-      if (checkError) {
-        console.error('Erreur vérification utilisateur:', checkError)
-        throw checkError
+      // Vérifier si l'utilisateur existe dans auth.users
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
+      
+      if (authError) {
+        console.error('❌ Erreur récupération utilisateurs auth:', authError)
+        throw authError
       }
       
-      const userExists = existingUsers && existingUsers.users && existingUsers.users.length > 0
-      console.log(`Utilisateur existe: ${userExists ? 'OUI' : 'NON'}`)
+      const userExists = authUsers.users.some(user => user.email === email)
+      console.log(`👤 Utilisateur existe: ${userExists ? 'OUI' : 'NON'}`)
       
       if (userExists) {
-        console.log('Envoi lien de réinitialisation (utilisateur existant)...')
+        console.log('🔄 Envoi lien de réinitialisation (utilisateur existant)...')
         method = 'reset_link'
         
         result = await supabaseAdmin.auth.admin.generateLink({
@@ -141,7 +168,7 @@ serve(async (req) => {
           }
         })
       } else {
-        console.log('Envoi invitation (nouvel utilisateur)...')
+        console.log('📨 Envoi invitation (nouvel utilisateur)...')
         method = 'invitation'
         
         result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
@@ -151,13 +178,37 @@ serve(async (req) => {
             name: userName || email.split('@')[0]
           }
         })
+        
+        // Si l'invitation réussit, créer le profil pour le futur utilisateur
+        if (result.data.user && !result.error) {
+          console.log('✅ Invitation envoyée, pré-création du profil...')
+          
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .upsert({
+              id: result.data.user.id,
+              email: email,
+              name: userName || email.split('@')[0],
+              role: userRole || 'sdr',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || email.split('@')[0])}&background=7E69AB&color=fff`
+            }, { onConflict: 'id' })
+          
+          if (profileError) {
+            console.error('⚠️ Erreur pré-création profil:', profileError)
+          }
+        }
       }
     }
     
-    console.log('Résultat:', JSON.stringify(result, null, 2))
+    console.log('📊 Résultat opération:', JSON.stringify({
+      success: !result.error,
+      method: method,
+      hasData: !!result.data,
+      error: result.error?.message
+    }))
     
     if (result.error) {
-      console.error('ERREUR:', result.error)
+      console.error('❌ ERREUR:', result.error)
       throw result.error
     }
     
@@ -175,15 +226,19 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
+    
   } catch (error) {
-    console.error('❌ ERREUR dans simple-email-invite:', error)
+    console.error('❌ ERREUR CRITIQUE dans simple-email-invite:', error)
+    console.error('Stack trace:', error.stack)
+    
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message || 'Erreur inconnue',
+      details: error.stack || 'Pas de détails disponibles',
       timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 500,
     })
   }
 })
