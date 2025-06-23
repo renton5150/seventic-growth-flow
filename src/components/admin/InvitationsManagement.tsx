@@ -11,11 +11,14 @@ import { toast } from "sonner";
 export const InvitationsManagement = () => {
   const [copied, setCopied] = useState<string | null>(null);
 
-  const { data: invitations = [], isLoading, refetch } = useQuery({
+  const { data: invitationsResponse, isLoading, refetch } = useQuery({
     queryKey: ['user-invitations'],
     queryFn: getAllInvitations,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Extract the actual invitations array from the response
+  const invitations = invitationsResponse?.success ? invitationsResponse.data : [];
 
   const handleCopyInvitationUrl = async (token: string) => {
     const invitationUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/invite/${token}`;
@@ -55,6 +58,19 @@ export const InvitationsManagement = () => {
     return (
       <div className="flex justify-center items-center h-40">
         <RefreshCw className="h-8 w-8 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+
+  // Handle error case
+  if (!invitationsResponse?.success) {
+    return (
+      <div className="text-center p-8 border rounded-md">
+        <p className="text-red-600">Erreur lors du chargement des invitations</p>
+        <Button onClick={() => refetch()} variant="outline" className="mt-2">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Réessayer
+        </Button>
       </div>
     );
   }
