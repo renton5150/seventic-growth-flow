@@ -32,6 +32,7 @@ export async function sendResetLink(
     console.log(`Durée d'expiration configurée pour le lien: ${options.expireIn} secondes (${options.expireIn / 86400} jours)`);
     
     console.log("Informations pour le lien de réinitialisation:", JSON.stringify({ email, options }));
+    console.log("Envoi du lien de réinitialisation via Supabase...");
     
     const resetResult = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
@@ -50,7 +51,7 @@ export async function sendResetLink(
       });
     }
     
-    console.log("Email de réinitialisation envoyé avec succès");
+    console.log("Email de réinitialisation envoyé avec succès via", emailConfig.emailProvider);
     
     return new Response(JSON.stringify({ 
       success: true,
@@ -113,6 +114,7 @@ export async function sendInvitationLink(
     console.log(`Durée d'expiration configurée pour l'invitation: ${options.expireIn} secondes (${options.expireIn / 86400} jours)`);
     
     console.log("Informations pour l'invitation:", JSON.stringify({ email, options }));
+    console.log("Envoi de l'invitation via Supabase...");
     
     // Tentative d'invitation
     const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, options);
@@ -128,7 +130,7 @@ export async function sendInvitationLink(
       });
     }
     
-    console.log("Invitation envoyée avec succès");
+    console.log("Invitation envoyée avec succès via", emailConfig.emailProvider);
     
     return new Response(JSON.stringify({ 
       success: true,
