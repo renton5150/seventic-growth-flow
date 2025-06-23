@@ -2,92 +2,129 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Mail, AlertCircle, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Mail, TestTube } from "lucide-react";
 
 const EmailTestButton = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [lastResult, setLastResult] = useState<any>(null);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const testSimpleEmail = async () => {
+  const handleTest = async () => {
     if (!email) {
-      toast.error("Veuillez saisir un email");
+      setError("Veuillez saisir une adresse email");
       return;
     }
 
     setIsLoading(true);
+    setError(null);
+    setResult(null);
+
     try {
-      console.log("🧪 Test email simple pour:", email);
+      console.log("Test envoi email simple pour:", email);
       
-      const { data, error } = await supabase.functions.invoke('test-email-simple', {
-        body: { email }
+      const { data, error: functionError } = await supabase.functions.invoke('simple-email-invite', {
+        body: { 
+          email: email,
+          userName: email.split('@')[0],
+          userRole: 'sdr'
+        }
       });
 
-      if (error) {
-        console.error("Erreur lors du test:", error);
-        toast.error(`Erreur: ${error.message}`);
-        setLastResult({ success: false, error });
-        return;
+      if (functionError) {
+        throw functionError;
       }
 
-      console.log("✅ Résultat du test:", data);
-      setLastResult(data);
-      
-      if (data.success) {
-        toast.success("Email de test envoyé avec succès !");
-      } else {
-        toast.error(`Échec: ${data.message}`);
-      }
-    } catch (err) {
-      console.error("Exception lors du test:", err);
-      toast.error("Erreur lors du test");
-      setLastResult({ success: false, error: err });
+      console.log("Résultat test:", data);
+      setResult(data);
+    } catch (err: any) {
+      console.error("Erreur test email:", err);
+      setError(err.message || "Une erreur est survenue");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TestTube className="h-5 w-5" />
-          Test Email Simple
+          <Mail className="h-5 w-5" />
+          Test Envoi Email Simple
         </CardTitle>
         <CardDescription>
-          Tester l'envoi d'email directement via generateLink
+          Test direct avec la nouvelle fonction simple qui utilise les méthodes natives Supabase
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
+        <div className="space-y-2">
+          <Label htmlFor="test-email">Adresse email de test</Label>
           <Input
+            id="test-email"
             type="email"
-            placeholder="Email de test"
+            placeholder="test@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="flex-1"
           />
-          <Button 
-            onClick={testSimpleEmail}
-            disabled={isLoading}
-            size="sm"
-          >
-            <Mail className="h-4 w-4 mr-1" />
-            {isLoading ? "Test..." : "Test"}
-          </Button>
         </div>
-        
-        {lastResult && (
-          <div className="mt-4 p-3 bg-gray-50 rounded text-sm">
-            <strong>Dernier résultat:</strong>
-            <pre className="mt-1 whitespace-pre-wrap text-xs">
-              {JSON.stringify(lastResult, null, 2)}
-            </pre>
-          </div>
+
+        <Button 
+          onClick={handleTest} 
+          disabled={isLoading || !email}
+          className="w-full"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Test en cours...
+            </>
+          ) : (
+            <>
+              <Mail className="mr-2 h-4 w-4" />
+              Tester l'envoi
+            </>
+          )}
+        </Button>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
+
+        {result && (
+          <Alert variant={result.success ? "default" : "destructive"}>
+            {result.success ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            <AlertDescription>
+              <div className="space-y-2">
+                <p><strong>Statut:</strong> {result.success ? "✅ Succès" : "❌ Échec"}</p>
+                {result.message && <p><strong>Message:</strong> {result.message}</p>}
+                {result.method && <p><strong>Méthode:</strong> {result.method}</p>}
+                {result.userExists !== undefined && (
+                  <p><strong>Utilisateur existant:</strong> {result.userExists ? "Oui" : "Non"}</p>
+                )}
+                {result.error && <p><strong>Erreur:</strong> {result.error}</p>}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Note:</strong> Cette fonction utilise le service email par défaut de Supabase.
+            Vérifiez vos spams si vous ne recevez pas l'email.
+          </AlertDescription>
+        </Alert>
       </CardContent>
     </Card>
   );
