@@ -1,4 +1,5 @@
 
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +24,7 @@ import DatabaseCreationEdit from "./pages/DatabaseCreationEdit";
 import LinkedInScrapingEdit from "./pages/LinkedInScrapingEdit";
 import AdminUsers from "./pages/AdminUsers";
 import AdminMissions from "./pages/AdminMissions";
+import AdminDashboard from "./pages/AdminDashboard";
 import GrowthDashboard from "./pages/GrowthDashboard";
 import Archives from "./pages/Archives";
 import NotFound from "./pages/NotFound";
@@ -122,6 +124,12 @@ function App() {
                 } />
 
                 {/* Admin routes */}
+                <Route path="/admin/dashboard" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } />
+                
                 <Route path="/admin/users" element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminUsers />
@@ -209,3 +217,4 @@ function App() {
 }
 
 export default App;
+
