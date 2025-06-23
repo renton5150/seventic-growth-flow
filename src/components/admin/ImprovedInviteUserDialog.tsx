@@ -124,7 +124,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     if (result?.tempPassword) {
       try {
         await navigator.clipboard.writeText(result.tempPassword);
-        toast.success("Mot de passe copié");
+        toast.success("Mot de passe copié !");
       } catch (error) {
         console.error("Erreur copie:", error);
         toast.error("Erreur lors de la copie");
@@ -136,7 +136,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     if (result?.actionLink) {
       try {
         await navigator.clipboard.writeText(result.actionLink);
-        toast.success("Lien copié");
+        toast.success("Lien copié !");
       } catch (error) {
         console.error("Erreur copie:", error);
         toast.error("Erreur lors de la copie");
@@ -154,19 +154,24 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     setFormData({ email: "", name: "", role: defaultRole });
     setResult(null);
     setCreationMode('direct');
+    onOpenChange(false);
     
     if (onUserInvited) {
       onUserInvited();
     }
-    
-    onOpenChange(false);
   };
 
-  // Affichage du succès avec toutes les informations
+  const handleNewOperation = () => {
+    setFormData({ email: "", name: "", role: defaultRole });
+    setResult(null);
+    setCreationMode('direct');
+  };
+
+  // Affichage du succès avec toutes les informations - RESTE PERMANENT
   if (result?.success) {
     return (
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[700px]">
+      <Dialog open={open} onOpenChange={() => {}} modal={true}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Check className="h-5 w-5 text-green-600" />
@@ -193,7 +198,18 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
 
             <div className="space-y-2">
               <Label>Email de connexion</Label>
-              <Input value={formData.email} readOnly className="bg-gray-50" />
+              <div className="flex space-x-2">
+                <Input value={formData.email} readOnly className="bg-gray-50" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigator.clipboard.writeText(formData.email)}
+                  title="Copier l'email"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {result.tempPassword && (
@@ -230,31 +246,37 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
 
             {result.actionLink && (
               <div className="space-y-2">
-                <Label>Lien d'accès direct</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    value={result.actionLink}
-                    readOnly
-                    className="font-mono text-xs bg-gray-50"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleCopyLink}
-                    title="Copier le lien"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleOpenLink}
-                    title="Ouvrir le lien"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                <Label className="text-base font-semibold text-blue-800">🔗 LIEN D'ACCÈS DIRECT (PERMANENT)</Label>
+                <div className="p-4 border-2 border-blue-300 rounded-lg bg-blue-50">
+                  <div className="flex space-x-2 mb-3">
+                    <Input
+                      value={result.actionLink}
+                      readOnly
+                      className="font-mono text-xs bg-white border-blue-200 focus:border-blue-400"
+                    />
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="icon"
+                      onClick={handleCopyLink}
+                      title="Copier le lien"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleOpenLink}
+                      title="Ouvrir le lien"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-blue-700 font-medium">
+                    ⚠️ IMPORTANT : Ce lien reste affiché en permanence. Prenez le temps de le copier !
+                  </p>
                 </div>
               </div>
             )}
@@ -277,8 +299,13 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
               </AlertDescription>
             </Alert>
 
-            <div className="flex justify-end">
-              <Button onClick={handleClose}>Fermer</Button>
+            <div className="flex justify-between gap-3 pt-4">
+              <Button variant="outline" onClick={handleNewOperation}>
+                Nouvelle opération
+              </Button>
+              <Button onClick={handleClose} className="bg-green-600 hover:bg-green-700">
+                Fermer
+              </Button>
             </div>
           </div>
         </DialogContent>
