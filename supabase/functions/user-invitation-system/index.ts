@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -164,6 +163,105 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
         })
+      }
+
+      case 'create_user_directly': {
+        const { email, name, role, created_by } = params
+        
+        if (!email || !name || !role || !created_by) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'missing_parameters',
+            message: 'Paramètres manquants'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          })
+        }
+
+        console.log('👤 Création directe utilisateur pour:', email)
+
+        // Générer un mot de passe temporaire
+        const tempPassword = crypto.randomUUID()
+
+        try {
+          // Créer l'utilisateur directement
+          const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: email,
+            password: tempPassword,
+            email_confirm: true,
+            user_metadata: {
+              name: name,
+              role: role
+            }
+          })
+
+          if (authError) {
+            console.error('❌ Erreur création auth:', authError)
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'auth_creation_failed',
+              message: 'Erreur lors de la création du compte',
+              details: authError.message
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200,
+            })
+          }
+
+          // Créer le profil
+          const { data: profileData, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              email: email,
+              name: name,
+              role: role
+            })
+            .select()
+            .single()
+
+          if (profileError) {
+            console.error('❌ Erreur création profil:', profileError)
+            // Supprimer l'utilisateur auth si le profil a échoué
+            await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'profile_creation_failed',
+              message: 'Erreur lors de la création du profil',
+              details: profileError.message
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200,
+            })
+          }
+
+          console.log('✅ Utilisateur créé directement avec succès')
+
+          return new Response(JSON.stringify({
+            success: true,
+            user: {
+              ...profileData,
+              tempPassword: tempPassword
+            },
+            message: 'Utilisateur créé avec succès'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          })
+
+        } catch (error) {
+          console.error('❌ Exception création directe:', error)
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'creation_exception',
+            message: 'Exception lors de la création',
+            details: error.message
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          })
+        }
       }
 
       case 'validate_token': {

@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Copy, Check, Loader2, AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { Copy, Check, Loader2, AlertCircle, AlertTriangle, Info, User } from "lucide-react";
 import { toast } from "sonner";
-import { createInvitation, CreateInvitationData, InvitationResponse } from "@/services/invitation/invitationService";
+import { createInvitation, createUserDirectly, CreateInvitationData, InvitationResponse } from "@/services/invitation/invitationService";
 import { UserRole } from "@/types/types";
 
 interface ImprovedInviteUserDialogProps {
@@ -30,29 +30,47 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
   const [copied, setCopied] = useState(false);
   const [invitationResult, setInvitationResult] = useState<InvitationResponse | null>(null);
   const [showForceOption, setShowForceOption] = useState(false);
+  const [creationMode, setCreationMode] = useState<'invitation' | 'direct'>('direct');
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setInvitationResult(null);
     setShowForceOption(false);
+    setTempPassword(null);
 
     try {
-      const result = await createInvitation(formData);
+      let result: InvitationResponse;
+      
+      if (creationMode === 'direct') {
+        result = await createUserDirectly(formData);
+        if (result.success) {
+          toast.success("Utilisateur créé avec succès !");
+          setTempPassword((result as any).user?.tempPassword);
+          onUserInvited?.();
+        }
+      } else {
+        result = await createInvitation(formData);
+        if (result.success && result.invitationUrl) {
+          setInvitationUrl(result.invitationUrl);
+          if (result.userExists) {
+            toast.success("Invitation créée pour un utilisateur existant");
+          } else {
+            toast.success("Invitation créée avec succès");
+          }
+          onUserInvited?.();
+        }
+      }
+      
       setInvitationResult(result);
       
-      if (result.success && result.invitationUrl) {
-        setInvitationUrl(result.invitationUrl);
-        if (result.userExists) {
-          toast.success("Invitation créée pour un utilisateur existant");
+      if (!result.success) {
+        if (result.errorType === 'active_invitation_exists' || result.errorType === 'user_already_exists') {
+          setShowForceOption(true);
         } else {
-          toast.success("Invitation créée avec succès");
+          toast.error(result.error || "Erreur lors de la création");
         }
-        onUserInvited?.();
-      } else if (result.errorType === 'active_invitation_exists' || result.errorType === 'user_already_exists') {
-        setShowForceOption(true);
-      } else {
-        toast.error(result.error || "Erreur lors de la création de l'invitation");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erreur inconnue");
@@ -94,12 +112,21 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     }
   };
 
+  const handleCopyPassword = async () => {
+    if (tempPassword) {
+      await navigator.clipboard.writeText(tempPassword);
+      toast.success("Mot de passe copié");
+    }
+  };
+
   const handleClose = () => {
     setFormData({ email: "", name: "", role: defaultRole, force_create: false });
     setInvitationUrl(null);
     setInvitationResult(null);
     setShowForceOption(false);
     setCopied(false);
+    setTempPassword(null);
+    setCreationMode('direct');
     onOpenChange(false);
   };
 
@@ -140,18 +167,116 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     );
   };
 
+  // Si utilisateur créé directement
+  if (invitationResult?.success && creationMode === 'direct' && tempPassword) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-green-600" />
+              Utilisateur créé avec succès !
+            </DialogTitle>
+            <DialogDescription>
+              L'utilisateur a été créé et ajouté à la liste. Voici ses informations de connexion :
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Alert className="border-green-200 bg-green-50">
+              <Check className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <strong>{formData.name}</strong> ({formData.email}) a été créé avec le rôle <strong>{formData.role}</strong>
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <Label>Email de connexion</Label>
+              <Input value={formData.email} readOnly className="bg-gray-50" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mot de passe temporaire</Label>
+              <div className="flex space-x-2">
+                <Input
+                  value={tempPassword}
+                  readOnly
+                  type="password"
+                  className="font-mono text-sm bg-gray-50"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyPassword}
+                  title="Copier le mot de passe"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                L'utilisateur peut maintenant se connecter avec cet email et ce mot de passe temporaire. 
+                Il est recommandé de lui demander de changer son mot de passe lors de sa première connexion.
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex justify-end">
+              <Button onClick={handleClose}>
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Inviter un utilisateur</DialogTitle>
+          <DialogTitle>Ajouter un utilisateur</DialogTitle>
           <DialogDescription>
-            Créez une invitation pour un nouvel utilisateur. Un lien d'inscription sera généré.
+            Créez directement un utilisateur ou envoyez-lui une invitation par email.
           </DialogDescription>
         </DialogHeader>
 
         {!invitationUrl ? (
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Mode de création</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={creationMode === 'direct' ? 'default' : 'outline'}
+                  onClick={() => setCreationMode('direct')}
+                  className="flex-1"
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Créer directement
+                </Button>
+                <Button
+                  type="button"
+                  variant={creationMode === 'invitation' ? 'default' : 'outline'}
+                  onClick={() => setCreationMode('invitation')}
+                  className="flex-1"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Envoyer invitation
+                </Button>
+              </div>
+              <p className="text-xs text-gray-600">
+                {creationMode === 'direct' 
+                  ? "L'utilisateur sera créé immédiatement avec un mot de passe temporaire"
+                  : "Un lien d'invitation sera généré pour que l'utilisateur puisse s'inscrire"
+                }
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -224,10 +349,10 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Création...
+                    {creationMode === 'direct' ? 'Création...' : 'Création invitation...'}
                   </>
                 ) : (
-                  "Créer l'invitation"
+                  creationMode === 'direct' ? 'Créer l\'utilisateur' : "Créer l'invitation"
                 )}
               </Button>
             </div>

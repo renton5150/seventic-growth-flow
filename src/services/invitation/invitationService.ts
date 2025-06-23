@@ -99,6 +99,71 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
   }
 };
 
+// Nouvelle fonction pour créer directement un utilisateur
+export const createUserDirectly = async (data: CreateInvitationData): Promise<InvitationResponse> => {
+  try {
+    console.log("🚀 Création utilisateur direct:", data);
+    
+    // Récupérer l'utilisateur actuel
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Utilisateur non connecté");
+    }
+    
+    const { data: result, error } = await supabase.functions.invoke('user-invitation-system', {
+      body: {
+        action: 'create_user_directly',
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        created_by: user.id
+      }
+    });
+    
+    if (error) {
+      console.error("❌ Erreur fonction Edge:", error);
+      return { 
+        success: false, 
+        error: `Erreur de connexion: ${error.message}`,
+        errorType: 'unknown'
+      };
+    }
+    
+    if (!result) {
+      console.error("❌ Aucune réponse de la fonction Edge");
+      return { 
+        success: false, 
+        error: "Aucune réponse du serveur",
+        errorType: 'unknown'
+      };
+    }
+    
+    console.log("📥 Réponse création directe:", result);
+    
+    if (!result.success) {
+      return { 
+        success: false, 
+        error: result.message || result.error || "Échec création utilisateur",
+        errorType: 'unknown'
+      };
+    }
+    
+    console.log("✅ Utilisateur créé directement avec succès");
+    return {
+      success: true,
+      invitation: result.user
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error("❌ Exception création utilisateur direct:", error);
+    return { 
+      success: false, 
+      error: errorMessage, 
+      errorType: 'unknown' 
+    };
+  }
+};
+
 export const validateInvitationToken = async (token: string) => {
   try {
     const { data: result, error } = await supabase.functions.invoke('user-invitation-system', {
