@@ -99,7 +99,10 @@ serve(async (req) => {
       console.log("Setting default expireIn to 180 days (15552000 seconds)");
     }
     
-    console.log("Using provided redirect URL for callbacks:", redirectUrl);
+    // Utiliser l'URL de production Lovable fixe
+    const callbackUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback`;
+    
+    console.log("Using fixed callback URL:", callbackUrl);
     
     // Send appropriate email based on whether user exists
     if (userExists) {
@@ -107,7 +110,7 @@ serve(async (req) => {
       return await sendResetLink(
         supabaseAdmin.client, 
         email, 
-        redirectUrl, 
+        callbackUrl, 
         profileResult.profile, 
         emailConfig,
         corsHeaders,
@@ -118,7 +121,7 @@ serve(async (req) => {
       return await sendInvitationLink(
         supabaseAdmin.client, 
         email, 
-        redirectUrl, 
+        callbackUrl, 
         profileResult.profile, 
         emailConfig,
         corsHeaders,

@@ -12,12 +12,8 @@ export async function sendResetLink(
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
   
   try {
-    // Utiliser l'URL de base fournie pour construire la redirection
-    const baseUrl = redirectUrl.includes('lovableproject.com') 
-      ? 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com'
-      : new URL(redirectUrl).origin;
-    
-    const callbackRedirectUrl = `${baseUrl}/auth-callback?type=recovery&email=${encodeURIComponent(email)}`;
+    // Utiliser l'URL de production Lovable pour les redirections
+    const callbackRedirectUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery&email=${encodeURIComponent(email)}`;
     
     console.log("URL de redirection pour reset:", callbackRedirectUrl);
     
@@ -117,12 +113,8 @@ export async function sendInvitationLink(
   console.log("Nouvel utilisateur, envoi d'une invitation");
   
   try {
-    // Utiliser l'URL de base fournie pour construire la redirection
-    const baseUrl = redirectUrl.includes('lovableproject.com') 
-      ? 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com'
-      : new URL(redirectUrl).origin;
-    
-    const callbackRedirectUrl = `${baseUrl}/auth-callback?type=invite&email=${encodeURIComponent(email)}`;
+    // Utiliser l'URL de production Lovable pour les redirections
+    const callbackRedirectUrl = `https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite&email=${encodeURIComponent(email)}`;
     
     console.log("URL de redirection pour invitation:", callbackRedirectUrl);
     
