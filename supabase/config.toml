@@ -26,7 +26,7 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com"
+site_url = "http://localhost:3000"
 
 [realtime]
 enabled = true
