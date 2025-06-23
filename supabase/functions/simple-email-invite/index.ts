@@ -20,15 +20,13 @@ serve(async (req) => {
     console.log('Email:', email)
     console.log('Nom:', userName)
     console.log('Rôle:', userRole)
-    console.log('Timestamp:', new Date().toISOString())
     
-    // Validation des paramètres
+    // Validation stricte des paramètres
     if (!email || !email.includes('@')) {
       console.error('❌ Email invalide:', email)
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Email invalide',
-        timestamp: new Date().toISOString()
+        error: 'Email invalide'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
@@ -47,29 +45,33 @@ serve(async (req) => {
       }
     )
     
+    // Vérifier si l'utilisateur existe dans auth.users
+    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    
+    if (listError) {
+      console.error('❌ Erreur récupération utilisateurs:', listError)
+      throw listError
+    }
+    
+    const existingUser = existingUsers.users.find(user => user.email === email)
+    const userExists = !!existingUser
+    
+    console.log(`👤 Utilisateur existe: ${userExists ? 'OUI' : 'NON'}`)
+    
     let result
     let method
+    let actionLink = null
+    let tempPassword = null
     
     if (action === 'reset_password') {
-      console.log('🔄 Génération lien de réinitialisation de mot de passe...')
+      console.log('🔄 Génération lien de réinitialisation...')
       method = 'password_reset'
-      
-      // Vérifier si l'utilisateur existe dans auth.users
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
-      
-      if (authError) {
-        console.error('❌ Erreur récupération utilisateurs auth:', authError)
-        throw authError
-      }
-      
-      const userExists = authUsers.users.some(user => user.email === email)
       
       if (!userExists) {
         console.error('❌ Utilisateur non trouvé pour reset password:', email)
         return new Response(JSON.stringify({ 
           success: false, 
-          error: 'Utilisateur non trouvé',
-          timestamp: new Date().toISOString()
+          error: 'Utilisateur non trouvé'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
@@ -84,77 +86,73 @@ serve(async (req) => {
         }
       })
       
+      if (result.data?.properties?.action_link) {
+        actionLink = result.data.properties.action_link
+        console.log('✅ Lien de récupération généré')
+      }
+      
     } else if (action === 'create_direct') {
       console.log('👤 Création directe utilisateur...')
       method = 'direct_creation'
       
-      // Générer un mot de passe temporaire sécurisé
-      const tempPassword = Math.random().toString(36).slice(-8) + 
-                          Math.random().toString(36).slice(-8).toUpperCase() + 
-                          Math.floor(Math.random() * 100) + '!'
-      
-      console.log('🔐 Mot de passe temporaire généré')
-      
-      result = await supabaseAdmin.auth.admin.createUser({
-        email: email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-          name: userName || email.split('@')[0],
-          role: userRole || 'sdr'
-        }
-      })
-      
-      if (result.data.user && !result.error) {
-        console.log('✅ Utilisateur créé dans auth, création du profil...')
-        
-        // Créer ou mettre à jour le profil
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .upsert({
-            id: result.data.user.id,
-            email: email,
-            name: userName || email.split('@')[0],
-            role: userRole || 'sdr',
-            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || email.split('@')[0])}&background=7E69AB&color=fff`
-          }, { onConflict: 'id' })
-        
-        if (profileError) {
-          console.error('⚠️ Erreur création profil (mais utilisateur créé):', profileError)
-        } else {
-          console.log('✅ Profil créé avec succès')
-        }
-        
-        return new Response(JSON.stringify({ 
-          success: true, 
-          message: 'Utilisateur créé avec succès',
-          method: method,
-          user: {
-            id: result.data.user.id,
-            email: email,
-            tempPassword: tempPassword
-          },
-          timestamp: new Date().toISOString()
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+      if (userExists) {
+        console.log('⚠️ Utilisateur existe déjà, génération lien reset...')
+        result = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: email,
+          options: {
+            redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
+          }
         })
+        
+        if (result.data?.properties?.action_link) {
+          actionLink = result.data.properties.action_link
+        }
+        
+        method = 'existing_user_reset'
+      } else {
+        // Générer un mot de passe temporaire sécurisé
+        tempPassword = Math.random().toString(36).slice(-8) + 
+                      Math.random().toString(36).slice(-8).toUpperCase() + 
+                      Math.floor(Math.random() * 100) + '!'
+        
+        console.log('🔐 Mot de passe temporaire généré')
+        
+        result = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: {
+            name: userName || email.split('@')[0],
+            role: userRole || 'sdr'
+          }
+        })
+        
+        if (result.data.user && !result.error) {
+          console.log('✅ Utilisateur créé dans auth')
+          
+          // Créer le profil
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .upsert({
+              id: result.data.user.id,
+              email: email,
+              name: userName || email.split('@')[0],
+              role: userRole || 'sdr',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || email.split('@')[0])}&background=7E69AB&color=fff`
+            }, { onConflict: 'id' })
+          
+          if (profileError) {
+            console.error('⚠️ Erreur création profil:', profileError)
+          } else {
+            console.log('✅ Profil créé avec succès')
+          }
+        }
       }
       
     } else {
       // Action 'invite' par défaut
-      console.log('📧 Vérification existence utilisateur pour invitation...')
-      
-      // Vérifier si l'utilisateur existe dans auth.users
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
-      
-      if (authError) {
-        console.error('❌ Erreur récupération utilisateurs auth:', authError)
-        throw authError
-      }
-      
-      const userExists = authUsers.users.some(user => user.email === email)
-      console.log(`👤 Utilisateur existe: ${userExists ? 'OUI' : 'NON'}`)
+      console.log('📧 Traitement invitation...')
       
       if (userExists) {
         console.log('🔄 Envoi lien de réinitialisation (utilisateur existant)...')
@@ -167,6 +165,11 @@ serve(async (req) => {
             redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=recovery'
           }
         })
+        
+        if (result.data?.properties?.action_link) {
+          actionLink = result.data.properties.action_link
+          console.log('✅ Lien de réinitialisation généré')
+        }
       } else {
         console.log('📨 Envoi invitation (nouvel utilisateur)...')
         method = 'invitation'
@@ -179,9 +182,9 @@ serve(async (req) => {
           }
         })
         
-        // Si l'invitation réussit, créer le profil pour le futur utilisateur
+        // Si l'invitation réussit, créer le profil
         if (result.data.user && !result.error) {
-          console.log('✅ Invitation envoyée, pré-création du profil...')
+          console.log('✅ Invitation envoyée, création du profil...')
           
           const { error: profileError } = await supabaseAdmin
             .from('profiles')
@@ -194,7 +197,7 @@ serve(async (req) => {
             }, { onConflict: 'id' })
           
           if (profileError) {
-            console.error('⚠️ Erreur pré-création profil:', profileError)
+            console.error('⚠️ Erreur création profil:', profileError)
           }
         }
       }
@@ -204,6 +207,8 @@ serve(async (req) => {
       success: !result.error,
       method: method,
       hasData: !!result.data,
+      hasActionLink: !!actionLink,
+      hasTempPassword: !!tempPassword,
       error: result.error?.message
     }))
     
@@ -212,17 +217,33 @@ serve(async (req) => {
       throw result.error
     }
     
+    const responseData = {
+      success: true,
+      message: `Opération réussie (${method})`,
+      userExists: userExists,
+      method: method,
+      data: result.data
+    }
+    
+    // Ajouter le lien d'action si disponible
+    if (actionLink) {
+      responseData.actionLink = actionLink
+    }
+    
+    // Ajouter le mot de passe temporaire si disponible
+    if (tempPassword) {
+      responseData.tempPassword = tempPassword
+      responseData.user = {
+        id: result.data?.user?.id,
+        email: email,
+        tempPassword: tempPassword
+      }
+    }
+    
     console.log('✅ Opération réussie')
     console.log('=== SIMPLE EMAIL INVITE - FIN ===')
     
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: `Opération réussie (${method})`,
-      userExists: method === 'reset_link',
-      method: method,
-      data: result.data,
-      timestamp: new Date().toISOString()
-    }), {
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
@@ -234,8 +255,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message || 'Erreur inconnue',
-      details: error.stack || 'Pas de détails disponibles',
-      timestamp: new Date().toISOString()
+      details: error.stack || 'Pas de détails disponibles'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

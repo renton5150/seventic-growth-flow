@@ -14,6 +14,7 @@ export interface InvitationResponse {
   userExists?: boolean;
   method?: string;
   tempPassword?: string;
+  actionLink?: string;
 }
 
 // Créer un utilisateur directement avec mot de passe temporaire
@@ -68,8 +69,10 @@ export const createUserDirectly = async (data: CreateInvitationData): Promise<In
     return {
       success: true,
       user: result.user,
-      tempPassword: result.user?.tempPassword,
-      method: result.method
+      tempPassword: result.tempPassword,
+      actionLink: result.actionLink,
+      method: result.method,
+      userExists: result.userExists
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
@@ -81,7 +84,7 @@ export const createUserDirectly = async (data: CreateInvitationData): Promise<In
   }
 };
 
-// Envoyer une invitation par email (API Supabase native)
+// Envoyer une invitation par email
 export const createInvitation = async (data: CreateInvitationData): Promise<InvitationResponse> => {
   try {
     console.log("🚀 Envoi invitation email:", data);
@@ -125,7 +128,8 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
     return {
       success: true,
       userExists: result.userExists,
-      method: result.method
+      method: result.method,
+      actionLink: result.actionLink
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
@@ -178,7 +182,8 @@ export const resetUserPassword = async (email: string): Promise<InvitationRespon
     console.log("✅ Lien de réinitialisation envoyé avec succès");
     return {
       success: true,
-      method: result.method
+      method: result.method,
+      actionLink: result.actionLink
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
