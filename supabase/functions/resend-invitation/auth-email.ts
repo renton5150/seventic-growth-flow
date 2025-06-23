@@ -12,11 +12,10 @@ export async function sendResetLink(
   console.log("Utilisateur existant, envoi d'un lien de réinitialisation");
   
   try {
-    // Construire une URL de redirection simple et fiable
-    const baseUrl = new URL(redirectUrl).origin;
-    const callbackRedirectUrl = `${baseUrl}/auth-callback?type=recovery&email=${encodeURIComponent(email)}`;
+    // UTILISER L'URL FOURNIE DIRECTEMENT - déjà unifiée depuis le frontend
+    const callbackRedirectUrl = redirectUrl;
     
-    console.log("URL de redirection pour reset:", callbackRedirectUrl);
+    console.log("URL de redirection pour reset (unifiée):", callbackRedirectUrl);
     
     const options: any = {
       emailRedirectTo: callbackRedirectUrl,
@@ -94,11 +93,10 @@ export async function sendInvitationLink(
   console.log("Nouvel utilisateur, envoi d'une invitation");
   
   try {
-    // Construire une URL de redirection simple et fiable
-    const baseUrl = new URL(redirectUrl).origin;
-    const callbackRedirectUrl = `${baseUrl}/auth-callback?type=invite&email=${encodeURIComponent(email)}`;
+    // UTILISER L'URL FOURNIE DIRECTEMENT - déjà unifiée depuis le frontend
+    const callbackRedirectUrl = redirectUrl;
     
-    console.log("URL de redirection pour invitation:", callbackRedirectUrl);
+    console.log("URL de redirection pour invitation (unifiée):", callbackRedirectUrl);
     
     const options: any = {
       emailRedirectTo: callbackRedirectUrl,
