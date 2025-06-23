@@ -1,8 +1,9 @@
 
+
 import { User, UserRole } from "@/types/types";
 
 // Export UserRole so it can be used in other files
-export { UserRole };
+export type { UserRole };
 
 // Type for user creation response
 export interface CreateUserResponse {
@@ -22,3 +23,4 @@ export interface ActionResponse {
 export const isValidUserRole = (role: any): role is UserRole => {
   return role === "admin" || role === "growth" || role === "sdr";
 };
+
