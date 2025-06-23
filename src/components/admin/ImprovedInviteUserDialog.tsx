@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Copy, Check, Loader2, AlertCircle, User, Mail, ExternalLink } from "lucide-react";
+import { Copy, Check, Loader2, AlertCircle, User, Mail, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { createInvitation, createUserDirectly, CreateInvitationData } from "@/services/invitation/invitationService";
+import { createInvitation, createUserDirectly, resetUserPassword, CreateInvitationData } from "@/services/invitation/invitationService";
 import { UserRole } from "@/types/types";
 
 interface ImprovedInviteUserDialogProps {
@@ -25,7 +25,8 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     role: defaultRole
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [creationMode, setCreationMode] = useState<'direct' | 'invitation'>('direct');
+  const [creationMode, setCreationMode] = useState<'direct' | 'invitation' | 'reset'>('direct');
+  const [showPassword, setShowPassword] = useState(false);
   const [result, setResult] = useState<{ 
     success: boolean; 
     tempPassword?: string; 
@@ -38,9 +39,16 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.name) {
-      toast.error("Veuillez remplir tous les champs obligatoires");
-      return;
+    if (creationMode === 'reset') {
+      if (!formData.email) {
+        toast.error("Veuillez saisir l'email");
+        return;
+      }
+    } else {
+      if (!formData.email || !formData.name) {
+        toast.error("Veuillez remplir tous les champs obligatoires");
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -49,7 +57,19 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     try {
       let response;
       
-      if (creationMode === 'direct') {
+      if (creationMode === 'reset') {
+        console.log("Mode réinitialisation mot de passe sélectionné");
+        response = await resetUserPassword(formData.email);
+        if (response.success) {
+          setResult({
+            success: true,
+            actionLink: response.actionLink,
+            message: "Lien de réinitialisation généré !",
+            method: response.method
+          });
+          toast.success("Lien de réinitialisation généré avec succès !");
+        }
+      } else if (creationMode === 'direct') {
         console.log("Mode création directe sélectionné");
         response = await createUserDirectly(formData);
         if (response.success) {
@@ -69,12 +89,12 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
           toast.success(message);
         }
       } else {
-        console.log("Mode invitation email sélectionné");
+        console.log("Mode génération lien d'invitation sélectionné");
         response = await createInvitation(formData);
         if (response.success) {
           const message = response.userExists 
             ? "Lien de réinitialisation généré pour l'utilisateur existant"
-            : "Invitation envoyée par email";
+            : "Lien d'invitation généré";
           setResult({
             success: true,
             actionLink: response.actionLink,
@@ -146,20 +166,11 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
   if (result?.success) {
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {result.tempPassword ? (
-                <>
-                  <User className="h-5 w-5 text-green-600" />
-                  {result.userExists ? "Utilisateur existant - Lien généré !" : "Utilisateur créé avec succès !"}
-                </>
-              ) : (
-                <>
-                  <Mail className="h-5 w-5 text-green-600" />
-                  {result.userExists ? "Lien de réinitialisation généré !" : "Invitation envoyée !"}
-                </>
-              )}
+              <Check className="h-5 w-5 text-green-600" />
+              Opération réussie !
             </DialogTitle>
             <DialogDescription>
               {result.message}
@@ -170,9 +181,13 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
             <Alert className="border-green-200 bg-green-50">
               <Check className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                <strong>{formData.name}</strong> ({formData.email}) - Rôle: <strong>{formData.role}</strong>
-                <br />
-                Méthode: <strong>{result.method}</strong>
+                <strong>{formData.name || formData.email}</strong> ({formData.email})
+                {formData.role && (
+                  <>
+                    <br />Rôle: <strong>{formData.role}</strong>
+                  </>
+                )}
+                <br />Méthode: <strong>{result.method}</strong>
               </AlertDescription>
             </Alert>
 
@@ -188,9 +203,18 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
                   <Input
                     value={result.tempPassword}
                     readOnly
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     className="font-mono text-sm bg-gray-50"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowPassword(!showPassword)}
+                    title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -239,14 +263,17 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 {result.tempPassword ? (
-                  <>L'utilisateur peut se connecter avec cet email et ce mot de passe temporaire. 
-                  Il est recommandé de lui demander de changer son mot de passe.</>
+                  <>
+                    L'utilisateur peut se connecter avec cet email et ce mot de passe temporaire. 
+                    Il est recommandé de lui demander de changer son mot de passe après la première connexion.
+                  </>
                 ) : (
-                  <>L'utilisateur recevra un email avec les instructions pour se connecter ou réinitialiser son mot de passe.</>
+                  <>
+                    L'utilisateur peut utiliser le lien d'accès direct ci-dessus pour se connecter ou définir son mot de passe.
+                  </>
                 )}
-                {result.actionLink && (
-                  <><br />Vous pouvez aussi lui envoyer directement le lien d'accès ci-dessus.</>
-                )}
+                <br />
+                <strong>Important :</strong> Partagez ces informations directement avec l'utilisateur car aucun email n'est envoyé automatiquement.
               </AlertDescription>
             </Alert>
 
@@ -263,15 +290,15 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Ajouter un utilisateur</DialogTitle>
+          <DialogTitle>Gestion utilisateur</DialogTitle>
           <DialogDescription>
-            Créez directement un utilisateur ou envoyez-lui une invitation par email.
+            Créez un utilisateur, générez un lien d'invitation ou réinitialisez un mot de passe.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Mode de création</Label>
+            <Label>Mode d'opération</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -289,13 +316,24 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
                 className="flex-1"
               >
                 <Mail className="h-4 w-4 mr-2" />
-                Envoyer invitation
+                Générer lien
+              </Button>
+              <Button
+                type="button"
+                variant={creationMode === 'reset' ? 'default' : 'outline'}
+                onClick={() => setCreationMode('reset')}
+                className="flex-1"
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                Reset MDP
               </Button>
             </div>
             <p className="text-xs text-gray-600">
               {creationMode === 'direct' 
-                ? "Utilisateur créé immédiatement avec mot de passe temporaire + lien d'accès"
-                : "Email d'invitation envoyé via Supabase + lien d'accès généré"
+                ? "Créer un utilisateur avec mot de passe temporaire + lien d'accès direct"
+                : creationMode === 'invitation'
+                ? "Générer un lien d'invitation pour un nouvel utilisateur (pas d'email envoyé)"
+                : "Générer un lien de réinitialisation pour un utilisateur existant"
               }
             </p>
           </div>
@@ -312,30 +350,34 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Nom complet *</Label>
-            <Input
-              id="name"
-              placeholder="Nom Prénom"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-          </div>
+          {creationMode !== 'reset' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="name">Nom complet *</Label>
+                <Input
+                  id="name"
+                  placeholder="Nom Prénom"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="role">Rôle</Label>
-            <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sdr">SDR</SelectItem>
-                <SelectItem value="growth">Growth</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Rôle</Label>
+                <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sdr">SDR</SelectItem>
+                    <SelectItem value="growth">Growth</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={handleClose}>
@@ -345,10 +387,10 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {creationMode === 'direct' ? 'Création...' : 'Envoi...'}
+                  {creationMode === 'direct' ? 'Création...' : creationMode === 'invitation' ? 'Génération...' : 'Génération...'}
                 </>
               ) : (
-                creationMode === 'direct' ? 'Créer l\'utilisateur' : "Envoyer l'invitation"
+                creationMode === 'direct' ? 'Créer l\'utilisateur' : creationMode === 'invitation' ? "Générer le lien" : "Générer lien reset"
               )}
             </Button>
           </div>

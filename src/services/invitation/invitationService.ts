@@ -17,7 +17,7 @@ export interface InvitationResponse {
   actionLink?: string;
 }
 
-// Créer un utilisateur directement avec mot de passe temporaire
+// Créer un utilisateur directement avec mot de passe temporaire ET lien d'accès
 export const createUserDirectly = async (data: CreateInvitationData): Promise<InvitationResponse> => {
   try {
     console.log("🚀 Création utilisateur direct:", data);
@@ -65,12 +65,21 @@ export const createUserDirectly = async (data: CreateInvitationData): Promise<In
       };
     }
     
-    console.log("✅ Utilisateur créé directement avec succès");
+    // TOUJOURS vérifier qu'on a un lien d'action
+    if (!result.actionLink) {
+      console.error("❌ Aucun lien d'action dans la réponse");
+      return {
+        success: false,
+        error: "Aucun lien d'accès généré"
+      };
+    }
+    
+    console.log("✅ Utilisateur créé directement avec succès, lien:", result.actionLink);
     return {
       success: true,
       user: result.user,
       tempPassword: result.tempPassword,
-      actionLink: result.actionLink,
+      actionLink: result.actionLink, // TOUJOURS présent
       method: result.method,
       userExists: result.userExists
     };
@@ -84,10 +93,10 @@ export const createUserDirectly = async (data: CreateInvitationData): Promise<In
   }
 };
 
-// Envoyer une invitation par email
+// Créer une invitation avec lien d'accès (pas d'email envoyé)
 export const createInvitation = async (data: CreateInvitationData): Promise<InvitationResponse> => {
   try {
-    console.log("🚀 Envoi invitation email:", data);
+    console.log("🚀 Création invitation avec lien:", data);
     
     if (!data.email || !data.email.includes('@')) {
       console.error("❌ Email invalide:", data.email);
@@ -117,23 +126,32 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
     }
     
     if (!result || !result.success) {
-      console.error("❌ Échec envoi invitation:", result);
+      console.error("❌ Échec création invitation:", result);
       return {
         success: false,
-        error: result?.error || "Échec envoi invitation"
+        error: result?.error || "Échec création invitation"
       };
     }
     
-    console.log("✅ Invitation envoyée avec succès");
+    // TOUJOURS vérifier qu'on a un lien d'action
+    if (!result.actionLink) {
+      console.error("❌ Aucun lien d'action dans la réponse");
+      return {
+        success: false,
+        error: "Aucun lien d'accès généré"
+      };
+    }
+    
+    console.log("✅ Invitation créée avec succès, lien:", result.actionLink);
     return {
       success: true,
       userExists: result.userExists,
       method: result.method,
-      actionLink: result.actionLink
+      actionLink: result.actionLink // TOUJOURS présent
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-    console.error("❌ Exception envoi invitation:", error);
+    console.error("❌ Exception création invitation:", error);
     return { 
       success: false, 
       error: `Erreur système: ${errorMessage}` 
@@ -141,7 +159,7 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
   }
 };
 
-// Réinitialiser le mot de passe d'un utilisateur existant
+// Réinitialiser le mot de passe d'un utilisateur existant avec lien d'accès
 export const resetUserPassword = async (email: string): Promise<InvitationResponse> => {
   try {
     console.log("🚀 Réinitialisation mot de passe:", email);
@@ -179,11 +197,20 @@ export const resetUserPassword = async (email: string): Promise<InvitationRespon
       };
     }
     
-    console.log("✅ Lien de réinitialisation envoyé avec succès");
+    // TOUJOURS vérifier qu'on a un lien d'action
+    if (!result.actionLink) {
+      console.error("❌ Aucun lien d'action dans la réponse");
+      return {
+        success: false,
+        error: "Aucun lien de réinitialisation généré"
+      };
+    }
+    
+    console.log("✅ Lien de réinitialisation généré avec succès:", result.actionLink);
     return {
       success: true,
       method: result.method,
-      actionLink: result.actionLink
+      actionLink: result.actionLink // TOUJOURS présent
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";

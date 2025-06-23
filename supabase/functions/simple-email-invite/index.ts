@@ -78,6 +78,7 @@ serve(async (req) => {
         })
       }
       
+      // TOUJOURS générer un lien d'accès direct pour reset password
       result = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email: email,
@@ -88,7 +89,16 @@ serve(async (req) => {
       
       if (result.data?.properties?.action_link) {
         actionLink = result.data.properties.action_link
-        console.log('✅ Lien de récupération généré')
+        console.log('✅ Lien de récupération généré:', actionLink)
+      } else {
+        console.error('❌ Impossible de générer le lien de récupération')
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Impossible de générer le lien de récupération'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        })
       }
       
     } else if (action === 'create_direct') {
@@ -97,6 +107,7 @@ serve(async (req) => {
       
       if (userExists) {
         console.log('⚠️ Utilisateur existe déjà, génération lien reset...')
+        // TOUJOURS générer un lien pour utilisateur existant
         result = await supabaseAdmin.auth.admin.generateLink({
           type: 'recovery',
           email: email,
@@ -107,6 +118,7 @@ serve(async (req) => {
         
         if (result.data?.properties?.action_link) {
           actionLink = result.data.properties.action_link
+          console.log('✅ Lien de reset généré pour utilisateur existant:', actionLink)
         }
         
         method = 'existing_user_reset'
@@ -131,6 +143,20 @@ serve(async (req) => {
         if (result.data.user && !result.error) {
           console.log('✅ Utilisateur créé dans auth')
           
+          // TOUJOURS générer un lien d'accès direct pour nouvel utilisateur
+          const linkResult = await supabaseAdmin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: email,
+            options: {
+              redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=signup'
+            }
+          })
+          
+          if (linkResult.data?.properties?.action_link) {
+            actionLink = linkResult.data.properties.action_link
+            console.log('✅ Lien d\'accès direct généré:', actionLink)
+          }
+          
           // Créer le profil
           const { error: profileError } = await supabaseAdmin
             .from('profiles')
@@ -151,13 +177,14 @@ serve(async (req) => {
       }
       
     } else {
-      // Action 'invite' par défaut
+      // Action 'invite' par défaut - TOUJOURS générer un lien
       console.log('📧 Traitement invitation...')
       
       if (userExists) {
-        console.log('🔄 Envoi lien de réinitialisation (utilisateur existant)...')
+        console.log('🔄 Génération lien de réinitialisation (utilisateur existant)...')
         method = 'reset_link'
         
+        // TOUJOURS générer un lien pour utilisateur existant
         result = await supabaseAdmin.auth.admin.generateLink({
           type: 'recovery',
           email: email,
@@ -168,24 +195,40 @@ serve(async (req) => {
         
         if (result.data?.properties?.action_link) {
           actionLink = result.data.properties.action_link
-          console.log('✅ Lien de réinitialisation généré')
+          console.log('✅ Lien de réinitialisation généré:', actionLink)
         }
       } else {
-        console.log('📨 Envoi invitation (nouvel utilisateur)...')
+        console.log('📨 Création utilisateur et génération lien...')
         method = 'invitation'
         
-        result = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite',
-          data: {
+        // Créer l'utilisateur d'abord
+        result = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          email_confirm: false, // Ne pas confirmer l'email automatiquement
+          user_metadata: {
             role: userRole || 'sdr',
             name: userName || email.split('@')[0]
           }
         })
         
-        // Si l'invitation réussit, créer le profil
         if (result.data.user && !result.error) {
-          console.log('✅ Invitation envoyée, création du profil...')
+          console.log('✅ Utilisateur créé, génération du lien...')
           
+          // TOUJOURS générer un lien d'invitation
+          const linkResult = await supabaseAdmin.auth.admin.generateLink({
+            type: 'invite',
+            email: email,
+            options: {
+              redirectTo: 'https://d5498fdf-9d30-4367-ace8-dffe1517b061.lovableproject.com/auth-callback?type=invite'
+            }
+          })
+          
+          if (linkResult.data?.properties?.action_link) {
+            actionLink = linkResult.data.properties.action_link
+            console.log('✅ Lien d\'invitation généré:', actionLink)
+          }
+          
+          // Créer le profil
           const { error: profileError } = await supabaseAdmin
             .from('profiles')
             .upsert({
@@ -214,7 +257,25 @@ serve(async (req) => {
     
     if (result.error) {
       console.error('❌ ERREUR:', result.error)
-      throw result.error
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: result.error.message || 'Erreur lors de l\'opération'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      })
+    }
+    
+    // TOUJOURS vérifier qu'on a un lien d'action
+    if (!actionLink) {
+      console.error('❌ Aucun lien d\'action généré')
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Impossible de générer le lien d\'accès'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      })
     }
     
     const responseData = {
@@ -222,12 +283,8 @@ serve(async (req) => {
       message: `Opération réussie (${method})`,
       userExists: userExists,
       method: method,
+      actionLink: actionLink, // TOUJOURS présent
       data: result.data
-    }
-    
-    // Ajouter le lien d'action si disponible
-    if (actionLink) {
-      responseData.actionLink = actionLink
     }
     
     // Ajouter le mot de passe temporaire si disponible
@@ -240,7 +297,7 @@ serve(async (req) => {
       }
     }
     
-    console.log('✅ Opération réussie')
+    console.log('✅ Opération réussie avec lien:', actionLink)
     console.log('=== SIMPLE EMAIL INVITE - FIN ===')
     
     return new Response(JSON.stringify(responseData), {
