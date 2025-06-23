@@ -41,8 +41,7 @@ export const createUser = async (
         name: name,
         role: role,
         avatar: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date()
       }
     };
   } catch (error) {
@@ -51,4 +50,3 @@ export const createUser = async (
     return { success: false, error: errorMessage };
   }
 };
-
