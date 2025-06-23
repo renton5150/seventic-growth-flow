@@ -1,6 +1,9 @@
 
 import { User, UserRole } from "@/types/types";
 
+// Export UserRole so it can be used in other files
+export { UserRole };
+
 // Type for user creation response
 export interface CreateUserResponse {
   success: boolean;
