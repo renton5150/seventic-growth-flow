@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Copy, Check, Loader2, AlertCircle, User, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { createInvitation, createUserDirectly, resetUserPassword, CreateInvitationData } from "@/services/invitation/invitationService";
+import { createInvitation, createUserDirectly, CreateInvitationData } from "@/services/invitation/invitationService";
 import { UserRole } from "@/types/types";
 
 interface ImprovedInviteUserDialogProps {
@@ -30,6 +30,12 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.email || !formData.name) {
+      toast.error("Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+
     setIsLoading(true);
     setResult(null);
 
@@ -37,6 +43,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
       let response;
       
       if (creationMode === 'direct') {
+        console.log("Mode création directe sélectionné");
         response = await createUserDirectly(formData);
         if (response.success) {
           setResult({
@@ -47,6 +54,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
           toast.success("Utilisateur créé avec succès !");
         }
       } else {
+        console.log("Mode invitation email sélectionné");
         response = await createInvitation(formData);
         if (response.success) {
           const message = response.userExists 
@@ -61,11 +69,13 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
       }
       
       if (!response.success) {
+        console.error("Erreur lors de l'opération:", response.error);
         toast.error(response.error || "Erreur lors de l'opération");
       } else if (onUserInvited) {
         setTimeout(() => onUserInvited(), 500);
       }
     } catch (error) {
+      console.error("Exception lors de l'opération:", error);
       toast.error(error instanceof Error ? error.message : "Erreur inconnue");
     } finally {
       setIsLoading(false);
@@ -74,8 +84,13 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
 
   const handleCopyPassword = async () => {
     if (result?.tempPassword) {
-      await navigator.clipboard.writeText(result.tempPassword);
-      toast.success("Mot de passe copié");
+      try {
+        await navigator.clipboard.writeText(result.tempPassword);
+        toast.success("Mot de passe copié");
+      } catch (error) {
+        console.error("Erreur copie:", error);
+        toast.error("Erreur lors de la copie");
+      }
     }
   };
 
@@ -176,7 +191,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
             <Alert className="border-green-200 bg-green-50">
               <Check className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                Un email a été envoyé à <strong>{formData.email}</strong> via votre SMTP laura.decoster@7tic.fr
+                Un email a été envoyé à <strong>{formData.email}</strong>
               </AlertDescription>
             </Alert>
 
@@ -232,13 +247,13 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
             <p className="text-xs text-gray-600">
               {creationMode === 'direct' 
                 ? "Utilisateur créé immédiatement avec mot de passe temporaire"
-                : "Email d'invitation envoyé via votre SMTP laura.decoster@7tic.fr"
+                : "Email d'invitation envoyé via Supabase"
               }
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Email *</Label>
             <Input
               id="email"
               type="email"
@@ -250,7 +265,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Nom complet</Label>
+            <Label htmlFor="name">Nom complet *</Label>
             <Input
               id="name"
               placeholder="Nom Prénom"

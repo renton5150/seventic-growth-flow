@@ -36,6 +36,30 @@ serve(async (req) => {
       console.log('Génération lien de réinitialisation de mot de passe...')
       method = 'password_reset'
       
+      // Vérifier d'abord si l'utilisateur existe
+      const { data: existingUsers, error: checkError } = await supabaseAdmin.auth.admin.listUsers({
+        filter: `email.eq.${email}`
+      })
+      
+      if (checkError) {
+        console.error('Erreur vérification utilisateur:', checkError)
+        throw checkError
+      }
+      
+      const userExists = existingUsers && existingUsers.users && existingUsers.users.length > 0
+      
+      if (!userExists) {
+        console.error('Utilisateur non trouvé pour reset password:', email)
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Utilisateur non trouvé',
+          timestamp: new Date().toISOString()
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        })
+      }
+      
       result = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email: email,
@@ -91,7 +115,7 @@ serve(async (req) => {
         })
       }
     } else {
-      // Vérifier si l'utilisateur existe déjà
+      // Action 'invite' par défaut
       console.log('Vérification existence utilisateur...')
       const { data: existingUsers, error: checkError } = await supabaseAdmin.auth.admin.listUsers({
         filter: `email.eq.${email}`
