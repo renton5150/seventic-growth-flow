@@ -53,9 +53,12 @@ serve(async (req) => {
     
     console.log("Supabase admin client initialized successfully");
     
-    // Get simplified email configuration (no longer blocks sending)
-    const emailConfig = await checkSmtpConfiguration(supabaseAdmin.client);
-    console.log("Email configuration result:", JSON.stringify(emailConfig));
+    // Check SMTP configuration if requested
+    const emailConfig = checkSmtpConfig ? 
+      await checkSmtpConfiguration(supabaseAdmin.client) : 
+      { smtpConfigured: false, emailProvider: "Supabase default" };
+
+    console.log("Email configuration check result:", JSON.stringify(emailConfig));
     
     // Get user profile for role information
     const profileResult = await getUserProfile(supabaseAdmin.client, email);
@@ -87,12 +90,13 @@ serve(async (req) => {
     
     const userExists = authUsers && authUsers.users && authUsers.users.length > 0;
     console.log("User exists:", userExists ? "Yes" : "No");
-    console.log("Email will be sent via:", emailConfig.emailProvider);
+    console.log("Email configuration:", emailConfig.emailProvider, 
+                emailConfig.smtpConfigured ? "(SMTP configured)" : "(SMTP not configured)");
     
     // Force a longer expiration time
     if (!inviteOptions.expireIn) {
-      inviteOptions.expireIn = 604800; // 7 days
-      console.log("Setting default expireIn to 7 days (604800 seconds)");
+      inviteOptions.expireIn = 15552000; // 180 days (6 months)
+      console.log("Setting default expireIn to 180 days (15552000 seconds)");
     }
     
     console.log("Using provided redirect URL for callbacks:", redirectUrl);

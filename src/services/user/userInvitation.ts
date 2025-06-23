@@ -22,10 +22,10 @@ export const resendInvitation = async (userEmail: string): Promise<ActionRespons
     // Get current application base URL
     const origin = window.location.origin;
     
-    // UTILISER LA MÊME URL QUE POUR LA CRÉATION - auth-callback avec type=invite
+    // Utiliser une URL de callback optimisée
     const redirectUrl = `${origin}/auth-callback?type=invite&email=${encodeURIComponent(userEmail)}`;
     
-    console.log("URL de redirection unifiée utilisée:", redirectUrl);
+    console.log("URL de redirection utilisée:", redirectUrl);
     
     // Use a longer client-side timeout (30 seconds)
     const timeoutPromise = new Promise<{ success: boolean, warning: string }>((resolve) => {

@@ -27,10 +27,12 @@ export const createUser = async (
     console.log("Création de l'utilisateur dans Supabase Auth...");
     console.log("Rôle spécifié pour le nouvel utilisateur:", role);
     
-    // Récupérer l'origine pour l'URL de redirection - UNIFIÉE avec auth-callback
+    // Récupérer l'origine pour l'URL de redirection
     const origin = window.location.origin;
-    const redirectTo = `${origin}/auth-callback?type=invite&email=${encodeURIComponent(email)}`;
-    console.log("URL de redirection unifiée pour l'invitation:", redirectTo);
+    
+    // S'assurer qu'on redirige explicitement vers la page reset-password avec le type et l'email
+    const redirectTo = `${origin}/reset-password?type=invite&email=${encodeURIComponent(email)}`;
+    console.log("URL de redirection pour la confirmation:", redirectTo);
     
     // Utiliser signUp pour créer un nouvel utilisateur avec le rôle spécifié dans les métadonnées
     const { data, error } = await supabase.auth.signUp({
@@ -132,8 +134,32 @@ export const createUser = async (
       
     console.log("Vérification du rôle après création:", profileCheck?.role);
     
-    // SUPPRESSION DU DOUBLE ENVOI - signUp() s'occupe déjà de l'envoi d'email
-    console.log("Email d'invitation automatiquement envoyé par signUp() vers:", redirectTo);
+    // Après la création réussie, envoyer une invitation explicite
+    try {
+      console.log("Envoi de l'invitation explicite via resend-invitation...");
+      const inviteParams = {
+        email: email,
+        redirectUrl: redirectTo,
+        skipJwtVerification: true,
+        inviteOptions: {
+          expireIn: 15552000 // 180 days (6 months)
+        }
+      };
+      
+      // Appel explicite à la fonction edge pour s'assurer que l'email est envoyé
+      const { data: inviteData, error: inviteError } = await supabase.functions.invoke(
+        'resend-invitation', 
+        { body: inviteParams }
+      );
+      
+      if (inviteError) {
+        console.warn("Avertissement: L'invitation explicite supplémentaire a échoué, mais l'utilisateur a été créé:", inviteError);
+      } else {
+        console.log("Invitation supplémentaire envoyée avec succès:", inviteData);
+      }
+    } catch (inviteErr) {
+      console.warn("Exception lors de l'envoi de l'invitation supplémentaire:", inviteErr);
+    }
     
     // Créer l'objet utilisateur à retourner
     const newUser: User = {

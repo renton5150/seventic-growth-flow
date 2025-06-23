@@ -18,7 +18,7 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log("🔄 Traitement du callback d'authentification - VERSION CORRIGÉE");
+        console.log("🔄 Traitement du callback d'authentification - VERSION AMÉLIORÉE");
         console.log("📍 URL complète:", window.location.href);
         console.log("🔗 Hash détecté:", window.location.hash);
         console.log("🔍 Search params:", window.location.search);
@@ -28,28 +28,22 @@ const AuthCallback = () => {
         const emailParam = searchParams.get("email");
         const error = searchParams.get("error");
         const errorDescription = searchParams.get("error_description");
-        const errorCode = searchParams.get("error_code");
         
-        console.log("📧 Paramètres extraits:", { type, emailParam, error, errorDescription, errorCode });
+        console.log("📧 Paramètres extraits:", { type, emailParam, error, errorDescription });
         
         if (emailParam) {
           setEmail(emailParam);
           console.log("📧 Email extrait:", emailParam);
         }
         
-        // Gérer les erreurs spécifiques
-        if (error || errorCode) {
-          console.error("❌ Erreur dans l'URL:", { error, errorDescription, errorCode });
+        // Vérifier s'il y a une erreur dans l'URL
+        if (error) {
+          console.error("❌ Erreur dans l'URL:", error, errorDescription);
           setStatus("error");
-          
-          // Messages d'erreur spécifiques
-          if (error === "access_denied" || errorCode === "otp_expired") {
-            setMessage("Le lien d'invitation a expiré. Veuillez demander un nouveau lien d'invitation.");
-          } else if (errorDescription) {
-            setMessage(errorDescription);
-          } else {
-            setMessage("Une erreur s'est produite lors de l'authentification. Veuillez réessayer.");
-          }
+          const friendlyMessage = error === "access_denied" 
+            ? "Accès refusé. Le lien d'invitation a peut-être expiré."
+            : errorDescription || error;
+          setMessage(friendlyMessage);
           return;
         }
         
@@ -70,18 +64,18 @@ const AuthCallback = () => {
             hasAccessToken: !!accessToken, 
             hasRefreshToken: !!refreshToken,
             tokenType,
-            hashError
+            hashError,
+            allHashParams: Object.fromEntries(hashParams.entries())
           });
           
           // Vérifier s'il y a une erreur dans le hash
           if (hashError) {
             console.error("❌ Erreur dans le hash:", hashError, hashErrorDescription);
             setStatus("error");
-            if (hashError === "access_denied") {
-              setMessage("Le lien d'invitation a expiré. Veuillez demander un nouveau lien d'invitation.");
-            } else {
-              setMessage(hashErrorDescription || hashError);
-            }
+            const friendlyMessage = hashError === "access_denied" 
+              ? "Accès refusé. Le lien d'invitation a peut-être expiré."
+              : hashErrorDescription || hashError;
+            setMessage(friendlyMessage);
             return;
           }
           
@@ -97,7 +91,7 @@ const AuthCallback = () => {
               if (sessionError) {
                 console.error("❌ Erreur lors de la configuration de la session:", sessionError);
                 setStatus("error");
-                setMessage("Le lien d'authentification est invalide ou a expiré. Veuillez demander un nouveau lien.");
+                setMessage("Le lien d'authentification est invalide ou a expiré.");
                 return;
               }
               
@@ -126,11 +120,13 @@ const AuthCallback = () => {
               setMessage("Une erreur s'est produite lors de l'authentification.");
               return;
             }
+          } else {
+            console.warn("⚠️ Hash présent mais pas de token d'accès");
           }
         }
         
         // Fallback : vérifier s'il y a une session existante
-        console.log("🔍 Vérification de session existante...");
+        console.log("🔍 Aucun token dans le hash, vérification de session existante...");
         const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
         
         if (getSessionError) {
@@ -154,6 +150,13 @@ const AuthCallback = () => {
           }, 1500);
         } else {
           console.warn("⚠️ Aucun token ni session trouvé");
+          console.log("🔍 Détails de debug:", {
+            fullUrl: window.location.href,
+            hash: window.location.hash,
+            search: window.location.search,
+            pathname: window.location.pathname
+          });
+          
           setStatus("error");
           setMessage("Le lien d'authentification est invalide ou a expiré. Veuillez demander un nouveau lien.");
         }
@@ -165,8 +168,10 @@ const AuthCallback = () => {
       }
     };
     
-    // Traitement immédiat
-    handleAuthCallback();
+    // Délai plus court pour traiter rapidement
+    const timeoutId = setTimeout(handleAuthCallback, 50);
+    
+    return () => clearTimeout(timeoutId);
   }, [searchParams, navigate]);
 
   const handleRequestNewLink = async () => {
@@ -177,7 +182,7 @@ const AuthCallback = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth-callback?type=recovery&email=${encodeURIComponent(email)}`,
+        redirectTo: `${window.location.origin}/auth-callback?email=${encodeURIComponent(email)}`,
       });
 
       if (error) {
