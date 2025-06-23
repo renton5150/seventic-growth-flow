@@ -27,18 +27,61 @@ serve(async (req) => {
 
     switch (action) {
       case 'create_invitation': {
-        const { email, name, role, created_by } = params
+        const { email, name, role, created_by, force_create = false } = params
         
-        // Générer un token unique
-        const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36)
+        // Vérifier s'il existe déjà une invitation active pour cet email
+        const { data: existingInvitation } = await supabaseAdmin
+          .from('user_invitations')
+          .select('*')
+          .eq('email', email)
+          .eq('is_used', false)
+          .gt('expires_at', new Date().toISOString())
+          .single()
+        
+        if (existingInvitation && !force_create) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'active_invitation_exists',
+            invitation: existingInvitation,
+            message: 'Une invitation active existe déjà pour cet email'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          })
+        }
         
         // Vérifier si l'utilisateur existe déjà
         const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers({
           filter: `email.eq.${email}`
         })
         
-        if (existingUser && existingUser.users && existingUser.users.length > 0) {
-          throw new Error('Un utilisateur avec cet email existe déjà')
+        const userExists = existingUser && existingUser.users && existingUser.users.length > 0
+        
+        if (userExists && !force_create) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'user_already_exists',
+            message: 'Un utilisateur avec cet email existe déjà. Utilisez l\'option "Forcer la création" si vous voulez créer une nouvelle invitation.'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          })
+        }
+        
+        // Générer un token unique
+        const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36)
+        
+        // Si force_create est activé, marquer les anciennes invitations comme expirées
+        if (force_create) {
+          await supabaseAdmin
+            .from('user_invitations')
+            .update({ 
+              expires_at: new Date().toISOString(),
+              is_used: true,
+              used_at: new Date().toISOString()
+            })
+            .eq('email', email)
+            .eq('is_used', false)
         }
         
         // Créer l'invitation
@@ -62,7 +105,8 @@ serve(async (req) => {
           success: true,
           invitation,
           invitationUrl,
-          message: 'Invitation créée avec succès'
+          userExists,
+          message: userExists ? 'Invitation créée pour un utilisateur existant' : 'Invitation créée avec succès'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,

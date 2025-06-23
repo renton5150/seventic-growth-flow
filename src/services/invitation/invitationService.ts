@@ -1,17 +1,20 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface CreateInvitationData {
   email: string;
   name: string;
   role: 'admin' | 'growth' | 'sdr';
+  force_create?: boolean;
 }
 
 export interface InvitationResponse {
   success: boolean;
   error?: string;
+  errorType?: 'active_invitation_exists' | 'user_already_exists' | 'unknown';
   invitationUrl?: string;
   invitation?: any;
+  userExists?: boolean;
+  existingInvitation?: any;
 }
 
 export const createInvitation = async (data: CreateInvitationData): Promise<InvitationResponse> => {
@@ -30,7 +33,8 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
         email: data.email,
         name: data.name,
         role: data.role,
-        created_by: user.id
+        created_by: user.id,
+        force_create: data.force_create || false
       }
     });
     
@@ -41,19 +45,34 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
     
     if (!result || !result.success) {
       console.error("❌ Échec création invitation:", result);
-      throw new Error(result?.error || "Échec création invitation");
+      
+      // Déterminer le type d'erreur
+      let errorType: 'active_invitation_exists' | 'user_already_exists' | 'unknown' = 'unknown';
+      if (result?.error === 'active_invitation_exists') {
+        errorType = 'active_invitation_exists';
+      } else if (result?.error === 'user_already_exists') {
+        errorType = 'user_already_exists';
+      }
+      
+      return { 
+        success: false, 
+        error: result?.message || result?.error || "Échec création invitation",
+        errorType,
+        existingInvitation: result?.invitation
+      };
     }
     
     console.log("✅ Invitation créée avec succès");
     return {
       success: true,
       invitationUrl: result.invitationUrl,
-      invitation: result.invitation
+      invitation: result.invitation,
+      userExists: result.userExists
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("❌ Exception création invitation:", error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: errorMessage, errorType: 'unknown' };
   }
 };
 

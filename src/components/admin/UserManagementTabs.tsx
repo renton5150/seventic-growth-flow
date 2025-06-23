@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
-import { NewInviteUserDialog } from "./NewInviteUserDialog";
+import { ImprovedInviteUserDialog } from "./ImprovedInviteUserDialog";
+import { InvitationsManagement } from "./InvitationsManagement";
 import AdminEmailDiagnostic from "./AdminEmailDiagnostic";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ChevronDown, RefreshCw } from "lucide-react";
@@ -96,6 +97,9 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
             <TabsTrigger value="admin" className="border-blue-300 data-[state=active]:border-blue-500 data-[state=active]:bg-blue-100">
               Administrateurs
             </TabsTrigger>
+            <TabsTrigger value="invitations" className="border-green-300 data-[state=active]:border-green-500 data-[state=active]:bg-green-100">
+              Invitations
+            </TabsTrigger>
             <TabsTrigger value="diagnostic" className="border-red-300 data-[state=active]:border-red-500 data-[state=active]:bg-red-100">
               Diagnostic Email
             </TabsTrigger>
@@ -168,12 +172,16 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
           />
         </TabsContent>
 
+        <TabsContent value="invitations" className="mt-4">
+          <InvitationsManagement />
+        </TabsContent>
+
         <TabsContent value="diagnostic" className="mt-4">
           <AdminEmailDiagnostic />
         </TabsContent>
       </Tabs>
 
-      <NewInviteUserDialog 
+      <ImprovedInviteUserDialog 
         open={isInviteDialogOpen} 
         onOpenChange={setIsInviteDialogOpen} 
         defaultRole={inviteRole}
