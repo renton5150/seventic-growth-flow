@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersTable } from "./UsersTable";
@@ -8,7 +7,7 @@ import AdminEmailDiagnostic from "./AdminEmailDiagnostic";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ChevronDown, RefreshCw } from "lucide-react";
 import { User, UserRole } from "@/types/types";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAllUsers } from "@/services/user/userQueries";
 import {
   DropdownMenu,
@@ -27,11 +26,12 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   const [inviteRole, setInviteRole] = useState<UserRole>("sdr");
   const isRefreshingRef = useRef(false);
   const initialLoadDoneRef = useRef(false);
+  const queryClient = useQueryClient();
 
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: getAllUsers,
-    staleTime: 30000,
+    staleTime: 10000, // Réduire le stale time pour rafraîchir plus souvent
     gcTime: 300000,
     retry: 1,
   });
@@ -44,6 +44,10 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
     isRefreshingRef.current = true;
     
     try {
+      // Invalider les caches et refetch
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      
       await refetch();
       
       if (onUserDataChange) {
@@ -56,7 +60,7 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
         isRefreshingRef.current = false;
       }, 2000);
     }
-  }, [refetch, onUserDataChange]);
+  }, [refetch, onUserDataChange, queryClient]);
 
   useEffect(() => {
     if (!initialLoadDoneRef.current && !isLoading && users.length > 0) {
@@ -75,9 +79,21 @@ export const UserManagementTabs = ({ onUserDataChange }: UserManagementTabsProps
   };
 
   const handleUserInvited = async () => {
-    setTimeout(() => {
-      handleRefresh();
-    }, 1000);
+    console.log("🔄 Utilisateur créé/invité, rafraîchissement de la liste...");
+    
+    // Invalider immédiatement les caches
+    queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    
+    // Rafraîchir les données
+    setTimeout(async () => {
+      await handleRefresh();
+    }, 500);
+    
+    // Rafraîchir une deuxième fois après 2 secondes pour s'assurer
+    setTimeout(async () => {
+      await handleRefresh();
+    }, 2000);
   };
 
   return (

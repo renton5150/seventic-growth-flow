@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,10 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
         if (result.success) {
           toast.success("Utilisateur créé avec succès !");
           setTempPassword((result as any).user?.tempPassword);
-          onUserInvited?.();
+          // Rafraîchir immédiatement la liste des utilisateurs
+          if (onUserInvited) {
+            setTimeout(() => onUserInvited(), 500);
+          }
         }
       } else {
         result = await createInvitation(formData);
@@ -59,7 +61,9 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
           } else {
             toast.success("Invitation créée avec succès");
           }
-          onUserInvited?.();
+          if (onUserInvited) {
+            setTimeout(() => onUserInvited(), 500);
+          }
         }
       }
       
@@ -91,7 +95,9 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
       if (result.success && result.invitationUrl) {
         setInvitationUrl(result.invitationUrl);
         toast.success("Nouvelle invitation créée avec succès");
-        onUserInvited?.();
+        if (onUserInvited) {
+          setTimeout(() => onUserInvited(), 500);
+        }
         setShowForceOption(false);
       } else {
         toast.error(result.error || "Erreur lors de la création forcée");
@@ -127,44 +133,13 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
     setCopied(false);
     setTempPassword(null);
     setCreationMode('direct');
+    
+    // Rafraîchir une dernière fois la liste avant de fermer
+    if (onUserInvited) {
+      onUserInvited();
+    }
+    
     onOpenChange(false);
-  };
-
-  const renderErrorAlert = () => {
-    if (!invitationResult || invitationResult.success) return null;
-
-    if (invitationResult.errorType === 'active_invitation_exists') {
-      return (
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertTriangle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800">
-            Une invitation active existe déjà pour cet email. Elle expire le{" "}
-            {invitationResult.existingInvitation?.expires_at ? 
-              new Date(invitationResult.existingInvitation.expires_at).toLocaleDateString('fr-FR') : 
-              'date inconnue'
-            }.
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (invitationResult.errorType === 'user_already_exists') {
-      return (
-        <Alert className="border-blue-200 bg-blue-50">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
-            Un utilisateur avec cet email existe déjà dans le système.
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>{invitationResult.error}</AlertDescription>
-      </Alert>
-    );
   };
 
   // Si utilisateur créé directement
@@ -221,6 +196,8 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
               <AlertDescription>
                 L'utilisateur peut maintenant se connecter avec cet email et ce mot de passe temporaire. 
                 Il est recommandé de lui demander de changer son mot de passe lors de sa première connexion.
+                <br /><br />
+                <strong>L'utilisateur apparaîtra dans la liste des utilisateurs actifs.</strong>
               </AlertDescription>
             </Alert>
 
@@ -234,6 +211,43 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
       </Dialog>
     );
   }
+
+  const renderErrorAlert = () => {
+    if (!invitationResult || invitationResult.success) return null;
+
+    if (invitationResult.errorType === 'active_invitation_exists') {
+      return (
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertDescription className="text-orange-800">
+            Une invitation active existe déjà pour cet email. Elle expire le{" "}
+            {invitationResult.existingInvitation?.expires_at ? 
+              new Date(invitationResult.existingInvitation.expires_at).toLocaleDateString('fr-FR') : 
+              'date inconnue'
+            }.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (invitationResult.errorType === 'user_already_exists') {
+      return (
+        <Alert className="border-blue-200 bg-blue-50">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            Un utilisateur avec cet email existe déjà dans le système.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{invitationResult.error}</AlertDescription>
+      </Alert>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -271,7 +285,7 @@ export const ImprovedInviteUserDialog = ({ open, onOpenChange, defaultRole = "sd
               </div>
               <p className="text-xs text-gray-600">
                 {creationMode === 'direct' 
-                  ? "L'utilisateur sera créé immédiatement avec un mot de passe temporaire"
+                  ? "L'utilisateur sera créé immédiatement avec un mot de passe temporaire et apparaîtra dans la liste"
                   : "Un lien d'invitation sera généré pour que l'utilisateur puisse s'inscrire"
                 }
               </p>
