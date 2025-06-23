@@ -33,10 +33,11 @@ serve(async (req) => {
         if (!email || !name || !role || !created_by) {
           return new Response(JSON.stringify({
             success: false,
-            error: 'Paramètres manquants'
+            error: 'missing_parameters',
+            message: 'Paramètres manquants'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+            status: 200,
           })
         }
         
@@ -140,11 +141,12 @@ serve(async (req) => {
           console.error('❌ Erreur création invitation:', createError)
           return new Response(JSON.stringify({
             success: false,
-            error: 'Erreur lors de la création de l\'invitation',
+            error: 'creation_failed',
+            message: 'Erreur lors de la création de l\'invitation',
             details: createError.message
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500,
+            status: 200,
           })
         }
         
@@ -260,21 +262,23 @@ serve(async (req) => {
       default:
         return new Response(JSON.stringify({
           success: false,
-          error: 'Action non supportée'
+          error: 'unsupported_action',
+          message: 'Action non supportée'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
+          status: 200,
         })
     }
   } catch (error) {
     console.error('❌ ERREUR GLOBALE:', error)
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Erreur inconnue',
+      error: 'server_error',
+      message: error.message || 'Erreur inconnue',
       stack: error.stack
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200,
     })
   }
 })

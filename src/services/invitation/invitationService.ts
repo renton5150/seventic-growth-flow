@@ -39,6 +39,7 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
       }
     });
     
+    // Si il y a une erreur de transport/réseau
     if (error) {
       console.error("❌ Erreur fonction Edge:", error);
       return { 
@@ -48,6 +49,7 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
       };
     }
     
+    // Si aucune réponse n'est reçue
     if (!result) {
       console.error("❌ Aucune réponse de la fonction Edge");
       return { 
@@ -57,10 +59,13 @@ export const createInvitation = async (data: CreateInvitationData): Promise<Invi
       };
     }
     
+    console.log("📥 Réponse reçue:", result);
+    
+    // La réponse est valide, traiter le contenu
     if (!result.success) {
-      console.error("❌ Échec création invitation:", result);
+      console.log("⚠️ Réponse avec success=false:", result);
       
-      // Déterminer le type d'erreur
+      // Déterminer le type d'erreur métier
       let errorType: 'active_invitation_exists' | 'user_already_exists' | 'unknown' = 'unknown';
       if (result.error === 'active_invitation_exists') {
         errorType = 'active_invitation_exists';
