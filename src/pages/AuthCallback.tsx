@@ -18,7 +18,7 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log("🔄 Traitement du callback d'authentification - NOUVELLE VERSION");
+        console.log("🔄 Traitement du callback d'authentification - VERSION AMÉLIORÉE");
         console.log("📍 URL complète:", window.location.href);
         console.log("🔗 Hash détecté:", window.location.hash);
         console.log("🔍 Search params:", window.location.search);
@@ -40,7 +40,10 @@ const AuthCallback = () => {
         if (error) {
           console.error("❌ Erreur dans l'URL:", error, errorDescription);
           setStatus("error");
-          setMessage(errorDescription || error);
+          const friendlyMessage = error === "access_denied" 
+            ? "Accès refusé. Le lien d'invitation a peut-être expiré."
+            : errorDescription || error;
+          setMessage(friendlyMessage);
           return;
         }
         
@@ -48,19 +51,33 @@ const AuthCallback = () => {
         const hash = window.location.hash;
         console.log("🔗 Hash analysé:", hash);
         
-        // Gérer les tokens dans le hash - CORRECTION DE LA LOGIQUE
+        // Gérer les tokens dans le hash
         if (hash && hash.length > 1) {
           const hashParams = new URLSearchParams(hash.substring(1));
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token') || '';
           const tokenType = hashParams.get('type');
+          const hashError = hashParams.get('error');
+          const hashErrorDescription = hashParams.get('error_description');
           
           console.log("🔑 Tokens trouvés dans le hash:", { 
             hasAccessToken: !!accessToken, 
             hasRefreshToken: !!refreshToken,
             tokenType,
+            hashError,
             allHashParams: Object.fromEntries(hashParams.entries())
           });
+          
+          // Vérifier s'il y a une erreur dans le hash
+          if (hashError) {
+            console.error("❌ Erreur dans le hash:", hashError, hashErrorDescription);
+            setStatus("error");
+            const friendlyMessage = hashError === "access_denied" 
+              ? "Accès refusé. Le lien d'invitation a peut-être expiré."
+              : hashErrorDescription || hashError;
+            setMessage(friendlyMessage);
+            return;
+          }
           
           if (accessToken) {
             try {
@@ -132,7 +149,7 @@ const AuthCallback = () => {
             }
           }, 1500);
         } else {
-          console.warn("⚠️ Aucun token ni session trouvé - PROBLÈME POTENTIEL");
+          console.warn("⚠️ Aucun token ni session trouvé");
           console.log("🔍 Détails de debug:", {
             fullUrl: window.location.href,
             hash: window.location.hash,
