@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2, AlertCircle, Search } from 'lucide-react';
+import { Download, Loader2, AlertCircle, Search, FileQuestion } from 'lucide-react';
 import { useFileDownload } from '@/hooks/useFileDownload';
 
 interface DownloadFileButtonProps {
@@ -25,6 +25,7 @@ export const DownloadFileButton = ({
   const [isDownloadable, setIsDownloadable] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [fileStatus, setFileStatus] = useState<'unknown' | 'temp' | 'url' | 'missing'>('unknown');
   const isDownloading = downloading === fileUrl;
   
   // ID unique pour les logs de cette instance
@@ -67,7 +68,20 @@ export const DownloadFileButton = ({
         console.log(`[Button ${buttonId}] Pas d'URL de fichier fournie`);
         setIsDownloadable(false);
         setHasError(true);
+        setFileStatus('missing');
         return;
+      }
+      
+      // Déterminer le type de fichier
+      if (fileUrl.startsWith('temp_')) {
+        setFileStatus('temp');
+        console.log(`[Button ${buttonId}] Fichier temp détecté: ${fileUrl}`);
+      } else if (fileUrl.startsWith('http')) {
+        setFileStatus('url');
+        console.log(`[Button ${buttonId}] URL complète détectée: ${fileUrl}`);
+      } else {
+        setFileStatus('unknown');
+        console.log(`[Button ${buttonId}] Type de fichier inconnu: ${fileUrl}`);
       }
       
       console.log(`[Button ${buttonId}] URL de fichier valide: ${fileUrl}`);
@@ -120,7 +134,7 @@ export const DownloadFileButton = ({
       return (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
-          {isSearching ? "Recherche du fichier..." : "Téléchargement..."}
+          {isSearching ? "Recherche intelligente..." : "Téléchargement..."}
         </>
       );
     }
@@ -134,11 +148,18 @@ export const DownloadFileButton = ({
       );
     }
     
-    // Icône spéciale pour les fichiers temp_
-    if (fileUrl.startsWith('temp_')) {
+    // Icône spéciale selon le type de fichier
+    if (fileStatus === 'temp') {
       return (
         <>
           <Search className="h-4 w-4" />
+          {label}
+        </>
+      );
+    } else if (fileStatus === 'unknown') {
+      return (
+        <>
+          <FileQuestion className="h-4 w-4" />
           {label}
         </>
       );
@@ -152,6 +173,30 @@ export const DownloadFileButton = ({
     );
   };
 
+  // Déterminer le message d'état
+  const getStatusMessage = () => {
+    if (hasError) {
+      if (fileStatus === 'temp') {
+        return "Fichier non trouvé - recherche intelligente échouée";
+      } else if (fileStatus === 'url') {
+        return "Erreur de télé chargement - fichier inaccessible";
+      }
+      return "Erreur de téléchargement";
+    }
+    
+    if (fileStatus === 'temp') {
+      return `Fichier importé (recherche intelligente): ${displayFileName}`;
+    } else if (fileStatus === 'url') {
+      return `Fichier stocké: ${displayFileName}`;
+    } else if (fileStatus === 'unknown') {
+      return `Type inconnu: ${displayFileName}`;
+    }
+    
+    return null;
+  };
+
+  const statusMessage = getStatusMessage();
+
   return (
     <div className="flex items-center gap-2">
       <Button 
@@ -164,14 +209,9 @@ export const DownloadFileButton = ({
       >
         {getButtonContent()}
       </Button>
-      {hasError && (
-        <span className="text-xs text-red-500">
-          {fileUrl.startsWith('temp_') ? "Fichier non trouvé dans le stockage" : "Erreur de téléchargement"}
-        </span>
-      )}
-      {fileUrl.startsWith('temp_') && !hasError && !isDownloading && (
-        <span className="text-xs text-gray-500">
-          Fichier importé: {displayFileName}
+      {statusMessage && (
+        <span className={`text-xs ${hasError ? 'text-red-500' : 'text-gray-500'}`}>
+          {statusMessage}
         </span>
       )}
     </div>

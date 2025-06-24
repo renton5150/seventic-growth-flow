@@ -4,6 +4,91 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 /**
+ * Fonction pour normaliser et extraire les mots-clés d'un nom de fichier
+ */
+const extractKeywords = (filename: string): string[] => {
+  // Supprimer les extensions et les préfixes timestamp
+  let cleanName = filename.replace(/\.(xlsx?|csv|txt)$/i, '');
+  cleanName = cleanName.replace(/^temp_\d+_/, '');
+  
+  // Extraire les mots significatifs (longueur >= 3)
+  const words = cleanName.split(/[_\-\s\.]+/).filter(word => word.length >= 3);
+  return words.map(word => word.toLowerCase());
+};
+
+/**
+ * Fonction pour calculer la similarité entre deux ensembles de mots-clés
+ */
+const calculateSimilarity = (keywords1: string[], keywords2: string[]): number => {
+  if (keywords1.length === 0 || keywords2.length === 0) return 0;
+  
+  const matches = keywords1.filter(word => 
+    keywords2.some(keyword => keyword.includes(word) || word.includes(keyword))
+  );
+  
+  return matches.length / Math.max(keywords1.length, keywords2.length);
+};
+
+/**
+ * Recherche intelligente de fichiers dans tous les buckets
+ */
+const findFileInAllBuckets = async (targetFilename: string, requestId: string): Promise<{bucket: string, filename: string} | null> => {
+  const buckets = ['blacklists', 'requests', 'databases', 'templates'];
+  const targetKeywords = extractKeywords(targetFilename);
+  
+  console.log(`[findFile:${requestId}] Recherche de "${targetFilename}" avec mots-clés:`, targetKeywords);
+  
+  let bestMatch: {bucket: string, filename: string, similarity: number} | null = null;
+  
+  for (const bucket of buckets) {
+    try {
+      console.log(`[findFile:${requestId}] 🔍 Exploration du bucket: ${bucket}`);
+      
+      const { data: files, error } = await supabase.storage
+        .from(bucket)
+        .list('', { limit: 100 });
+      
+      if (error || !files) {
+        console.log(`[findFile:${requestId}] Erreur ou aucun fichier dans ${bucket}:`, error?.message);
+        continue;
+      }
+      
+      console.log(`[findFile:${requestId}] Fichiers dans ${bucket}:`, files.map(f => f.name));
+      
+      // Recherche exacte d'abord
+      const exactMatch = files.find(f => f.name === targetFilename);
+      if (exactMatch) {
+        console.log(`[findFile:${requestId}] ✅ Match exact trouvé dans ${bucket}: ${exactMatch.name}`);
+        return { bucket, filename: exactMatch.name };
+      }
+      
+      // Recherche par similarité
+      for (const file of files) {
+        const fileKeywords = extractKeywords(file.name);
+        const similarity = calculateSimilarity(targetKeywords, fileKeywords);
+        
+        console.log(`[findFile:${requestId}] Similarité entre "${targetFilename}" et "${file.name}": ${similarity.toFixed(2)}`);
+        
+        if (similarity > 0.5 && (!bestMatch || similarity > bestMatch.similarity)) {
+          bestMatch = { bucket, filename: file.name, similarity };
+          console.log(`[findFile:${requestId}] 🎯 Nouveau meilleur match: ${file.name} dans ${bucket} (${similarity.toFixed(2)})`);
+        }
+      }
+    } catch (err) {
+      console.log(`[findFile:${requestId}] Exception lors de l'exploration de ${bucket}:`, err);
+    }
+  }
+  
+  if (bestMatch && bestMatch.similarity > 0.5) {
+    console.log(`[findFile:${requestId}] ✅ Meilleur match trouvé: ${bestMatch.filename} dans ${bestMatch.bucket}`);
+    return { bucket: bestMatch.bucket, filename: bestMatch.filename };
+  }
+  
+  console.log(`[findFile:${requestId}] ❌ Aucun fichier correspondant trouvé`);
+  return null;
+};
+
+/**
  * Télécharge un fichier à partir d'une URL
  * @param fileUrl URL du fichier à télécharger
  * @param fileName Nom du fichier à utiliser pour le téléchargement
@@ -26,43 +111,18 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
         console.log(`[downloadFile:${requestId}] Chemin nettoyé: ${filePath}`);
       }
       
-      // Liste des buckets à essayer dans l'ordre de priorité pour les listes noires
-      const bucketsToTry = ['blacklists', 'requests', 'databases', 'templates'];
+      // Utiliser la recherche intelligente
+      const foundFile = await findFileInAllBuckets(filePath, requestId);
       
-      // Diagnostic : lister le contenu de chaque bucket pour traçabilité
-      for (const bucket of bucketsToTry) {
-        console.log(`[downloadFile:${requestId}] === Diagnostic du bucket: ${bucket} ===`);
-        try {
-          const { data: bucketFiles, error: listError } = await supabase.storage
-            .from(bucket)
-            .list('', { limit: 100 });
-          
-          if (!listError && bucketFiles) {
-            console.log(`[downloadFile:${requestId}] Fichiers dans ${bucket}:`, bucketFiles.map(f => f.name));
-            // Chercher si notre fichier existe
-            const foundFile = bucketFiles.find(f => f.name === filePath || f.name.includes(filePath.split('_').slice(-1)[0]));
-            if (foundFile) {
-              console.log(`[downloadFile:${requestId}] 🎯 Fichier potentiel trouvé dans ${bucket}: ${foundFile.name}`);
-            }
-          } else {
-            console.log(`[downloadFile:${requestId}] Erreur lors du listing de ${bucket}:`, listError);
-          }
-        } catch (err) {
-          console.log(`[downloadFile:${requestId}] Exception lors du listing de ${bucket}:`, err);
-        }
-      }
-      
-      // Maintenant essayer de télécharger depuis chaque bucket
-      for (const bucket of bucketsToTry) {
-        console.log(`[downloadFile:${requestId}] 📥 Tentative de téléchargement depuis le bucket: ${bucket}`);
+      if (foundFile) {
+        console.log(`[downloadFile:${requestId}] ✅ Fichier trouvé via recherche intelligente: ${foundFile.filename} dans ${foundFile.bucket}`);
         
         try {
           const { data, error } = await supabase.storage
-            .from(bucket)
-            .download(filePath);
+            .from(foundFile.bucket)
+            .download(foundFile.filename);
           
           if (!error && data) {
-            console.log(`[downloadFile:${requestId}] ✅ Fichier trouvé et téléchargé depuis le bucket: ${bucket}`);
             const blob = new Blob([data]);
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -73,63 +133,17 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
             document.body.removeChild(link);
             window.URL.revokeObjectURL(downloadUrl);
             
-            toast.success(`Fichier "${fileName}" téléchargé avec succès depuis ${bucket}`);
+            toast.success(`Fichier "${fileName}" téléchargé avec succès depuis ${foundFile.bucket}`);
             return true;
           }
-          
-          console.log(`[downloadFile:${requestId}] ❌ Fichier non trouvé dans ${bucket}:`, error?.message || 'Aucune erreur spécifique');
         } catch (err) {
-          console.log(`[downloadFile:${requestId}] ⚠️ Exception avec le bucket ${bucket}:`, err);
-          continue;
+          console.error(`[downloadFile:${requestId}] Erreur lors du téléchargement depuis ${foundFile.bucket}:`, err);
         }
       }
       
-      // Si aucun bucket n'a fonctionné, essayer des variantes du nom de fichier
-      console.log(`[downloadFile:${requestId}] 🔍 Essai de variantes du nom de fichier...`);
-      
-      // Extraire le nom réel du fichier depuis le temp_
-      let realFileName = filePath;
-      if (filePath.startsWith('temp_')) {
-        const parts = filePath.split('_');
-        if (parts.length >= 3) {
-          realFileName = parts.slice(2).join('_');
-          console.log(`[downloadFile:${requestId}] Nom réel extrait: ${realFileName}`);
-          
-          // Réessayer avec le nom réel dans les buckets prioritaires
-          for (const bucket of ['blacklists', 'requests']) {
-            try {
-              const { data, error } = await supabase.storage
-                .from(bucket)
-                .download(realFileName);
-              
-              if (!error && data) {
-                console.log(`[downloadFile:${requestId}] ✅ Fichier trouvé avec nom réel dans ${bucket}`);
-                const blob = new Blob([data]);
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(downloadUrl);
-                
-                toast.success(`Fichier "${fileName}" téléchargé avec succès`);
-                return true;
-              }
-            } catch (err) {
-              console.log(`[downloadFile:${requestId}] Exception avec nom réel dans ${bucket}:`, err);
-            }
-          }
-        }
-      }
-      
-      // Si toujours aucun résultat
+      // Si aucun fichier trouvé
       console.error(`[downloadFile:${requestId}] ❌ ÉCHEC COMPLET - Fichier non trouvé dans aucun bucket pour: ${fileUrl}`);
-      console.log(`[downloadFile:${requestId}] Chemin recherché: ${filePath}`);
-      console.log(`[downloadFile:${requestId}] Nom réel recherché: ${realFileName}`);
-      
-      toast.error(`Fichier "${fileName}" non trouvé dans le stockage. Vérifiez que le fichier existe.`);
+      toast.error(`Fichier "${fileName}" non trouvé dans le stockage. Le fichier pourrait avoir été supprimé ou déplacé.`);
       return false;
     }
     
