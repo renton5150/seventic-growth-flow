@@ -11,3 +11,6 @@ export { downloadFile, downloadDatabaseFile } from './downloadService';
 
 // Export email platforms services
 export * from '../emailPlatforms/emailPlatformService';
+
+// Export specific functions that might be needed
+export { uploadBlacklistFile } from './uploadService';
