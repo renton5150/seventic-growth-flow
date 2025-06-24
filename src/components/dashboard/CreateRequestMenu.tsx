@@ -22,13 +22,13 @@ export const CreateRequestMenu = () => {
     
     switch (type) {
       case "email":
-        navigate("/requests/email/new");
+        navigate("/request/email-campaign");
         break;
       case "database":
-        navigate("/requests/database/new");
+        navigate("/request/database-creation");
         break;
       case "linkedin":
-        navigate("/requests/linkedin/new");
+        navigate("/request/linkedin-scraping");
         break;
       default:
         console.warn(`[CreateRequestMenu] Type de demande non reconnu: ${type}`);
