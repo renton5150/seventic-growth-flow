@@ -26,31 +26,24 @@ export const DownloadFileButton = ({
   const [hasError, setHasError] = useState<boolean>(false);
   const isDownloading = downloading === fileUrl;
   
-  // Fonction pour extraire le nom réel du fichier
+  // Fonction pour extraire le nom réel du fichier - SANS MODIFICATION
   const getCleanFileName = (url: string, fallbackName: string): string => {
     if (!url) return fallbackName;
     
     try {
-      // Si c'est un fichier temp_, extraire le nom réel après le timestamp
-      if (url.startsWith('temp_')) {
-        const parts = url.split('_');
-        if (parts.length >= 3) {
-          // Format: temp_timestamp_nomfichier.ext
-          const realName = parts.slice(2).join('_');
-          return decodeURIComponent(realName);
-        }
-      }
-      
-      // Sinon utiliser la logique normale d'extraction
+      // Extraire le nom depuis l'URL
       const segments = url.split('/');
       let name = segments[segments.length - 1];
       
+      // Supprimer les paramètres d'URL s'il y en a
       if (name.includes('?')) {
         name = name.split('?')[0];
       }
       
+      // Décoder l'URL et retourner le nom tel quel
       return decodeURIComponent(name) || fallbackName;
     } catch (e) {
+      console.error("Erreur lors de l'extraction du nom de fichier:", e);
       return fallbackName;
     }
   };
