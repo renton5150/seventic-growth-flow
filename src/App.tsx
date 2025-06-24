@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -97,12 +96,14 @@ function App() {
                   </ProtectedRoute>
                 } />
                 
+                {/* Routes pour les détails des demandes - FORMAT UNIFIÉ */}
                 <Route path="/request/:requestId" element={
                   <ProtectedRoute>
                     <RequestDetails />
                   </ProtectedRoute>
                 } />
                 
+                {/* Routes pour l'édition des demandes - FORMAT UNIFIÉ */}
                 <Route path="/request/:requestId/edit" element={
                   <ProtectedRoute>
                     <EmailCampaignEdit />
@@ -120,6 +121,16 @@ function App() {
                     <LinkedInScrapingEdit />
                   </ProtectedRoute>
                 } />
+
+                {/* Routes ANCIENNES pour compatibilité - REDIRECTION VERS NOUVEAU FORMAT */}
+                <Route path="/requests/email/:requestId" element={<Navigate to="/request/:requestId" replace />} />
+                <Route path="/requests/database/:requestId" element={<Navigate to="/request/:requestId" replace />} />
+                <Route path="/requests/linkedin/:requestId" element={<Navigate to="/request/:requestId" replace />} />
+                <Route path="/requests/:type/:requestId" element={<Navigate to="/request/:requestId" replace />} />
+                
+                <Route path="/requests/email/:requestId/edit" element={<Navigate to="/request/:requestId/edit" replace />} />
+                <Route path="/requests/database/:requestId/edit" element={<Navigate to="/request/:requestId/edit-database" replace />} />
+                <Route path="/requests/linkedin/:requestId/edit" element={<Navigate to="/request/:requestId/edit-linkedin" replace />} />
 
                 {/* Admin routes */}
                 <Route path="/admin/dashboard" element={

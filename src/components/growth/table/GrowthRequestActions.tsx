@@ -104,14 +104,14 @@ export function GrowthRequestActions({
     }
   };
 
-  // Fonction pour rediriger vers la page d'édition complète
+  // Fonction pour rediriger vers la page d'édition complète - FORMAT UNIFIÉ
   const handleEdit = () => {
-    navigate(`/requests/${request.type}/${request.id}/edit`);
+    navigate(`/request/${request.id}/edit`);
   };
 
-  // Fonction pour rediriger vers la page de détails
+  // Fonction pour rediriger vers la page de détails - FORMAT UNIFIÉ
   const viewFullDetails = () => {
-    navigate(`/requests/${request.type}/${request.id}`);
+    navigate(`/request/${request.id}`);
   };
 
   // Fonction pour supprimer une demande
@@ -139,7 +139,7 @@ export function GrowthRequestActions({
         
         // Rediriger vers la page de liste si on est sur la vue détaillée
         const currentPath = window.location.pathname;
-        if (currentPath.includes(`/requests/${request.type}/${request.id}`)) {
+        if (currentPath.includes(`/request/${request.id}`)) {
           navigate('/growth');
         }
       } else {
@@ -161,7 +161,7 @@ export function GrowthRequestActions({
     }
     
     // Sur la page détaillée (pas dans le tableau), toujours montrer pour admin/growth
-    const isDetailPage = window.location.pathname.includes(`/requests/${request.type}/${request.id}`);
+    const isDetailPage = window.location.pathname.includes(`/request/${request.id}`);
     if (isDetailPage && (isGrowthOrAdmin || isSdrCreator)) {
       return true;
     }

@@ -98,7 +98,8 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   }, []);
 
   const handleViewDetails = useCallback((request: Request) => {
-    navigate(`/requests/${request.type}/${request.id}`);
+    // FORMAT UNIFIÉ pour la navigation
+    navigate(`/request/${request.id}`);
   }, [navigate]);
 
   // Fonction pour supprimer les filtres spéciaux
