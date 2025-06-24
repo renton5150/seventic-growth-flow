@@ -1,9 +1,10 @@
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useArchiveRequests } from "@/hooks/useArchiveRequests";
+import { useArchiveRequestsFilters } from "@/hooks/useArchiveRequestsFilters";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RequestsTable } from "@/components/dashboard/requests-table/RequestsTable";
+import { ArchiveRequestsTable } from "@/components/archives/ArchiveRequestsTable";
 
 const Archives = () => {
   const { 
@@ -16,13 +17,33 @@ const Archives = () => {
     isAdmin 
   } = useArchiveRequests();
 
+  // Utiliser le hook de filtres sur les requêtes filtrées par onglet
+  const {
+    filteredAndSortedRequests,
+    sortColumn,
+    sortDirection,
+    filters,
+    dateFilters,
+    uniqueValues,
+    handleSort,
+    handleFilterChange,
+    handleDateFilterChange
+  } = useArchiveRequestsFilters(archivedRequests);
+
+  console.log("[Archives] Rendu avec:", {
+    totalArchived: allArchivedRequests.length,
+    filteredByTab: archivedRequests.length,
+    finalFiltered: filteredAndSortedRequests.length,
+    activeTab
+  });
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Archives</h1>
           <p className="mt-2 text-gray-500">
-            Consultez toutes les demandes terminées.
+            Consultez toutes les demandes terminées avec tri et filtres.
           </p>
         </div>
 
@@ -35,7 +56,10 @@ const Archives = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">
-                  {allArchivedRequests.length} {allArchivedRequests.length > 1 ? 'demandes archivées' : 'demande archivée'}
+                  {filteredAndSortedRequests.length} sur {allArchivedRequests.length} {allArchivedRequests.length > 1 ? 'demandes archivées' : 'demande archivée'}
+                  {filteredAndSortedRequests.length !== archivedRequests.length && (
+                    <span className="text-blue-600 font-medium"> (filtrées)</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -57,11 +81,18 @@ const Archives = () => {
               </TabsList>
               
               <TabsContent value={activeTab} className="mt-6">
-                <RequestsTable 
-                  requests={archivedRequests} 
+                <ArchiveRequestsTable
+                  requests={filteredAndSortedRequests}
                   showSdr={!isSDR}
                   isSDR={isSDR}
-                  isArchived={true}
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  filters={filters}
+                  dateFilters={dateFilters}
+                  uniqueValues={uniqueValues}
+                  onSort={handleSort}
+                  onFilterChange={handleFilterChange}
+                  onDateFilterChange={handleDateFilterChange}
                 />
               </TabsContent>
             </Tabs>
