@@ -31,7 +31,7 @@ interface RequestRowActionsProps {
   updateRequestWorkflowStatus?: (requestId: string, newStatus: string) => Promise<boolean>;
   activeTab?: string;
   isSDR?: boolean;
-  isArchived?: boolean; // Nouveau prop pour savoir si on est dans les archives
+  isArchived?: boolean;
 }
 
 export const RequestRowActions = ({
@@ -83,8 +83,8 @@ export const RequestRowActions = ({
         console.log(`[RequestRowActions] ✅ Demande clonée avec succès:`, clonedRequest);
         toast.success("Demande clonée avec succès");
         
-        // Rediriger vers la nouvelle demande
-        navigate(`/requests/${clonedRequest.type}/${clonedRequest.id}`);
+        // Rediriger vers la nouvelle demande avec le bon pattern d'URL
+        navigate(`/request/${clonedRequest.id}`);
       } else {
         console.error(`[RequestRowActions] ❌ Échec du clonage`);
         toast.error("Erreur lors du clonage de la demande");
@@ -101,7 +101,7 @@ export const RequestRowActions = ({
     if (onViewDetails) {
       onViewDetails(request);
     } else {
-      navigate(`/requests/${request.type}/${request.id}`);
+      navigate(`/request/${request.id}`);
     }
   };
 
@@ -109,7 +109,7 @@ export const RequestRowActions = ({
     if (onEditRequest) {
       onEditRequest(request);
     } else {
-      navigate(`/requests/${request.type}/${request.id}/edit`);
+      navigate(`/request/${request.id}/edit`);
     }
   };
 

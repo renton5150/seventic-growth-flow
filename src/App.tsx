@@ -97,25 +97,25 @@ function App() {
                   </ProtectedRoute>
                 } />
                 
-                <Route path="/request/:id" element={
+                <Route path="/request/:requestId" element={
                   <ProtectedRoute>
                     <RequestDetails />
                   </ProtectedRoute>
                 } />
                 
-                <Route path="/request/:id/edit" element={
+                <Route path="/request/:requestId/edit" element={
                   <ProtectedRoute>
                     <EmailCampaignEdit />
                   </ProtectedRoute>
                 } />
                 
-                <Route path="/request/:id/edit-database" element={
+                <Route path="/request/:requestId/edit-database" element={
                   <ProtectedRoute>
                     <DatabaseCreationEdit />
                   </ProtectedRoute>
                 } />
                 
-                <Route path="/request/:id/edit-linkedin" element={
+                <Route path="/request/:requestId/edit-linkedin" element={
                   <ProtectedRoute>
                     <LinkedInScrapingEdit />
                   </ProtectedRoute>

@@ -10,18 +10,18 @@ import { LinkedInScrapingRequest } from "@/types/types";
 import { toast } from "sonner";
 
 const LinkedInScrapingEdit = () => {
-  const { id } = useParams<{ id: string }>();
+  const { requestId } = useParams<{ requestId: string }>();
   const navigate = useNavigate();
   const [request, setRequest] = useState<LinkedInScrapingRequest | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchRequestDetails = async () => {
-      if (!id) return;
+      if (!requestId) return;
       
       try {
         setLoading(true);
-        const fetchedRequest = await getRequestById(id);
+        const fetchedRequest = await getRequestById(requestId);
         
         if (fetchedRequest && fetchedRequest.type === "linkedin") {
           setRequest(fetchedRequest as LinkedInScrapingRequest);
@@ -38,7 +38,7 @@ const LinkedInScrapingEdit = () => {
     };
 
     fetchRequestDetails();
-  }, [id, navigate]);
+  }, [requestId, navigate]);
 
   if (loading) {
     return (
