@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload } from "lucide-react";
@@ -14,7 +13,7 @@ import {
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { uploadBlacklistFile } from "@/services/database";
+import { uploadDatabaseFile } from "@/services/database";
 
 interface BlacklistSectionProps {
   control: Control<any>;
@@ -73,7 +72,7 @@ export const BlacklistSection = ({
       
       toast.loading("Téléchargement en cours...", { id: "accounts-file-upload" });
       
-      const result = await uploadBlacklistFile(file);
+      const result = await uploadDatabaseFile(file);
       
       toast.dismiss("accounts-file-upload");
       
@@ -129,7 +128,7 @@ export const BlacklistSection = ({
       
       toast.loading("Téléchargement en cours...", { id: "emails-file-upload" });
       
-      const result = await uploadBlacklistFile(file);
+      const result = await uploadDatabaseFile(file);
       
       toast.dismiss("emails-file-upload");
       
