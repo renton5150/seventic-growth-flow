@@ -62,7 +62,7 @@ export const DatabaseSection = ({
       
       toast.loading("Téléchargement en cours...", { id: "file-upload" });
       
-      const result = await uploadDatabaseFile(file, user.id);
+      const result = await uploadDatabaseFile(file);
       
       toast.dismiss("file-upload");
       

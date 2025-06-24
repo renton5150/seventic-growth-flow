@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Control } from "react-hook-form";
 import { Upload, Link } from "lucide-react";
@@ -54,7 +55,7 @@ export const DatabaseSection = ({
     try {
       setUploading(true);
       
-      const result = await uploadDatabaseFile(file, user.id);
+      const result = await uploadDatabaseFile(file);
       
       if (result.success && result.fileUrl) {
         toast.success(`Fichier ${file.name} téléchargé avec succès`);

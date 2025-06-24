@@ -71,7 +71,7 @@ export const DatabaseUploader = () => {
       }
       
       console.log("Téléchargement du fichier:", file.name, "par utilisateur:", user.id);
-      const result = await uploadDatabaseFile(file, user.id);
+      const result = await uploadDatabaseFile(file);
       
       toast.dismiss(loadingToast);
       

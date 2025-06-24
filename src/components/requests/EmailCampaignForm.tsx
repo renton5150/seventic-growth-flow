@@ -209,34 +209,29 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     console.log(`Téléchargement du fichier pour le champ: ${field}, fichier: ${file.name}`);
     
     try {
-      let fileUrl: string | null = null;
+      let result = null;
       
       // Déterminer le type d'upload en fonction du champ
       if (field === "templateFileUrl") {
-        fileUrl = await uploadTemplateFile(file);
+        result = await uploadTemplateFile(file);
       } else if (field === "databaseFileUrl" || field.startsWith("databaseFile")) {
-        if (user) {
-          const result = await uploadDatabaseFile(file, user.id);
-          if (result.success) {
-            fileUrl = result.fileUrl || null;
-          }
-        }
+        result = await uploadDatabaseFile(file);
       } else if (field === "blacklistAccountsFileUrl" || field === "blacklistEmailsFileUrl" || field.startsWith("blacklist")) {
-        fileUrl = await uploadBlacklistFile(file);
+        result = await uploadBlacklistFile(file);
       }
       
-      if (fileUrl) {
+      if (result && result.success && result.fileUrl) {
         // Pour les champs de blacklist multiples, ajouter à la liste existante
         if (field === "blacklistAccountsFileUrls") {
           const currentFiles = form.getValues("blacklistAccountsFileUrls") || [];
-          form.setValue("blacklistAccountsFileUrls", [...currentFiles, fileUrl]);
+          form.setValue("blacklistAccountsFileUrls", [...currentFiles, result.fileUrl]);
         } else if (field === "blacklistEmailsFileUrls") {
           const currentFiles = form.getValues("blacklistEmailsFileUrls") || [];
-          form.setValue("blacklistEmailsFileUrls", [...currentFiles, fileUrl]);
+          form.setValue("blacklistEmailsFileUrls", [...currentFiles, result.fileUrl]);
         } else {
-          form.setValue(field as any, fileUrl);
+          form.setValue(field as any, result.fileUrl);
         }
-        console.log(`Fichier téléversé avec succès pour ${field}: ${fileUrl}`);
+        console.log(`Fichier téléversé avec succès pour ${field}: ${result.fileUrl}`);
       } else {
         console.error(`Échec du téléversement pour ${field}`);
         toast.error("Échec du téléversement du fichier");
