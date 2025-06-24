@@ -14,110 +14,56 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
     const requestId = Math.random().toString(36).substring(7);
     console.log(`[downloadFile:${requestId}] Tentative de téléchargement: ${fileUrl} avec le nom ${fileName}`);
     
-    // Vérifier si c'est un chemin relatif (ancien format)
-    if (!fileUrl.startsWith('http') && !fileUrl.startsWith('https://')) {
-      console.log(`[downloadFile:${requestId}] Détection d'un chemin relatif ancien format: ${fileUrl}`);
+    // Vérifier si c'est un fichier temp_ (fichier importé)
+    if (fileUrl.startsWith('temp_') || (!fileUrl.startsWith('http') && !fileUrl.startsWith('https://'))) {
+      console.log(`[downloadFile:${requestId}] Détection d'un fichier temp ou chemin relatif: ${fileUrl}`);
       
       let filePath = fileUrl;
       
       // Nettoyer le chemin s'il commence par "uploads/"
       if (filePath.startsWith('uploads/')) {
-        filePath = filePath.substring(8); // Supprimer "uploads/"
+        filePath = filePath.substring(8);
         console.log(`[downloadFile:${requestId}] Chemin nettoyé: ${filePath}`);
       }
       
-      // Pour les anciens fichiers, essayer d'abord le bucket blacklists
-      console.log(`[downloadFile:${requestId}] Tentative dans le bucket blacklists pour ancien fichier`);
+      // Liste des buckets à essayer dans l'ordre de priorité
+      const bucketsToTry = ['blacklists', 'requests', 'databases'];
       
-      try {
-        const { data, error } = await supabase.storage
-          .from('blacklists')
-          .download(filePath);
+      for (const bucket of bucketsToTry) {
+        console.log(`[downloadFile:${requestId}] Tentative dans le bucket: ${bucket}`);
         
-        if (!error && data) {
-          console.log(`[downloadFile:${requestId}] Fichier trouvé dans blacklists`);
-          const blob = new Blob([data]);
-          const downloadUrl = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = downloadUrl;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(downloadUrl);
+        try {
+          const { data, error } = await supabase.storage
+            .from(bucket)
+            .download(filePath);
           
-          console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis blacklists`);
-          return true;
-        }
-        
-        console.log(`[downloadFile:${requestId}] Fichier non trouvé dans blacklists, essai avec databases`);
-      } catch (err) {
-        console.log(`[downloadFile:${requestId}] Erreur avec blacklists, essai avec databases:`, err);
-      }
-      
-      // Fallback vers le bucket databases
-      try {
-        const { data, error } = await supabase.storage
-          .from('databases')
-          .download(filePath);
-        
-        if (error) {
-          console.error(`[downloadFile:${requestId}] Erreur avec databases:`, error);
-          
-          // Essayer aussi avec le bucket "requests" pour les fichiers de blacklist
-          console.log(`[downloadFile:${requestId}] Tentative avec le bucket requests`);
-          
-          try {
-            const { data: requestData, error: requestError } = await supabase.storage
-              .from('requests')
-              .download(filePath);
+          if (!error && data) {
+            console.log(`[downloadFile:${requestId}] Fichier trouvé dans le bucket: ${bucket}`);
+            const blob = new Blob([data]);
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
             
-            if (!requestError && requestData) {
-              console.log(`[downloadFile:${requestId}] Fichier trouvé dans requests`);
-              const blob = new Blob([requestData]);
-              const downloadUrl = window.URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = downloadUrl;
-              link.download = fileName;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              window.URL.revokeObjectURL(downloadUrl);
-              
-              console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis requests`);
-              return true;
-            }
-          } catch (requestErr) {
-            console.log(`[downloadFile:${requestId}] Erreur avec requests:`, requestErr);
+            console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis le bucket: ${bucket}`);
+            return true;
           }
           
-          toast.error(`Fichier non trouvé: ${fileName}`);
-          return false;
+          console.log(`[downloadFile:${requestId}] Fichier non trouvé dans ${bucket}:`, error);
+        } catch (err) {
+          console.log(`[downloadFile:${requestId}] Erreur avec le bucket ${bucket}:`, err);
+          continue;
         }
-        
-        if (!data) {
-          console.error(`[downloadFile:${requestId}] Aucune donnée reçue`);
-          toast.error("Erreur lors du téléchargement: aucune donnée reçue");
-          return false;
-        }
-        
-        const blob = new Blob([data]);
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(downloadUrl);
-        
-        console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis databases`);
-        return true;
-      } catch (supabaseError) {
-        console.error(`[downloadFile:${requestId}] Exception lors du téléchargement depuis Supabase:`, supabaseError);
-        toast.error("Erreur lors du téléchargement depuis le stockage");
-        return false;
       }
+      
+      // Si aucun bucket n'a fonctionné
+      console.error(`[downloadFile:${requestId}] Fichier non trouvé dans aucun bucket pour: ${fileUrl}`);
+      toast.error(`Fichier "${fileName}" non trouvé dans le stockage`);
+      return false;
     }
     
     // Logique pour les URLs complètes (nouveaux fichiers)
