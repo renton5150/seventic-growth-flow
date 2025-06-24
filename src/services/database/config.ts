@@ -1,9 +1,8 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Liste des buckets requis par l'application
-const REQUIRED_BUCKETS = ['databases', 'templates', 'blacklists'];
+// Liste des buckets requis par l'application - ajout du bucket requests
+const REQUIRED_BUCKETS = ['databases', 'templates', 'blacklists', 'requests'];
 
 export const ensureDatabaseBucketExists = async (): Promise<boolean> => {
   return await ensureAllBucketsExist();
