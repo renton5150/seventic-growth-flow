@@ -63,6 +63,34 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
         
         if (error) {
           console.error(`[downloadFile:${requestId}] Erreur avec databases:`, error);
+          
+          // Essayer aussi avec le bucket "requests" pour les fichiers de blacklist
+          console.log(`[downloadFile:${requestId}] Tentative avec le bucket requests`);
+          
+          try {
+            const { data: requestData, error: requestError } = await supabase.storage
+              .from('requests')
+              .download(filePath);
+            
+            if (!requestError && requestData) {
+              console.log(`[downloadFile:${requestId}] Fichier trouvé dans requests`);
+              const blob = new Blob([requestData]);
+              const downloadUrl = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = downloadUrl;
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(downloadUrl);
+              
+              console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis requests`);
+              return true;
+            }
+          } catch (requestErr) {
+            console.log(`[downloadFile:${requestId}] Erreur avec requests:`, requestErr);
+          }
+          
           toast.error(`Fichier non trouvé: ${fileName}`);
           return false;
         }
@@ -92,7 +120,7 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
       }
     }
     
-    // Logique existante pour les URLs complètes (nouveaux fichiers) - ne pas toucher
+    // Logique pour les URLs complètes (nouveaux fichiers)
     let cleanUrl = fileUrl;
     
     // Nettoyer l'URL en supprimant les paramètres de token qui peuvent être expirés
@@ -101,10 +129,88 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
       console.log(`[downloadFile:${requestId}] URL nettoyée: ${cleanUrl}`);
     }
     
-    // Essayer d'abord un téléchargement direct via fetch pour les URLs complètes
+    // Vérifier si c'est une URL Supabase Storage et extraire les informations
+    const pathInfo = extractPathFromSupabaseUrl(cleanUrl);
+    
+    if (pathInfo) {
+      console.log(`[downloadFile:${requestId}] URL Supabase analysée - Bucket: ${pathInfo.bucketName}, Chemin: ${pathInfo.filePath}`);
+      
+      // Téléchargement direct depuis le storage Supabase
+      const { data, error } = await supabase.storage
+        .from(pathInfo.bucketName)
+        .download(pathInfo.filePath);
+      
+      if (error) {
+        console.error(`[downloadFile:${requestId}] Erreur lors du téléchargement depuis Supabase:`, error);
+        
+        // Essayer dans d'autres buckets si le premier échoue
+        const fallbackBuckets = ['blacklists', 'databases', 'requests'];
+        const originalBucket = pathInfo.bucketName;
+        
+        for (const bucket of fallbackBuckets) {
+          if (bucket === originalBucket) continue;
+          
+          console.log(`[downloadFile:${requestId}] Tentative de fallback vers le bucket: ${bucket}`);
+          
+          try {
+            const { data: fallbackData, error: fallbackError } = await supabase.storage
+              .from(bucket)
+              .download(pathInfo.filePath);
+            
+            if (!fallbackError && fallbackData) {
+              console.log(`[downloadFile:${requestId}] Fichier trouvé dans le bucket: ${bucket}`);
+              const blob = new Blob([fallbackData]);
+              const downloadUrl = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = downloadUrl;
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(downloadUrl);
+              
+              console.log(`[downloadFile:${requestId}] Téléchargement réussi depuis le bucket: ${bucket}`);
+              return true;
+            }
+          } catch (fallbackErr) {
+            console.log(`[downloadFile:${requestId}] Erreur avec le bucket ${bucket}:`, fallbackErr);
+          }
+        }
+        
+        toast.error(`Erreur: ${error.message}`);
+        return false;
+      }
+      
+      if (!data) {
+        console.error(`[downloadFile:${requestId}] Aucune donnée reçue de Supabase Storage pour: ${fileUrl}`);
+        toast.error("Erreur lors du téléchargement: aucune donnée reçue");
+        return false;
+      }
+      
+      // Création d'un blob et téléchargement
+      const blob = new Blob([data]);
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      console.log(`[downloadFile:${requestId}] Téléchargement depuis Supabase réussi pour: ${fileUrl}`);
+      return true;
+    }
+    
+    // Essayer un téléchargement direct via fetch pour les URLs externes
     try {
       console.log(`[downloadFile:${requestId}] Tentative de téléchargement direct via fetch`);
-      const response = await fetch(cleanUrl);
+      const response = await fetch(cleanUrl, {
+        mode: 'cors',
+        headers: {
+          'Accept': '*/*',
+        }
+      });
       
       if (!response.ok) {
         console.log(`[downloadFile:${requestId}] Fetch échoué avec status: ${response.status}`);
@@ -132,50 +238,10 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
       return true;
     } catch (fetchError) {
       console.error(`[downloadFile:${requestId}] Échec du téléchargement direct:`, fetchError);
-      // Continuer avec la méthode Supabase si fetch échoue
-    }
-    
-    // Vérifier si c'est une URL Supabase Storage
-    const pathInfo = extractPathFromSupabaseUrl(cleanUrl);
-    
-    if (!pathInfo) {
       console.error(`[downloadFile:${requestId}] Impossible d'extraire les informations de chemin pour l'URL: ${cleanUrl}`);
-      toast.error("Format d'URL non reconnu");
+      toast.error("Format d'URL non reconnu ou fichier inaccessible");
       return false;
     }
-    
-    console.log(`[downloadFile:${requestId}] URL analysée - Bucket: ${pathInfo.bucketName}, Chemin: ${pathInfo.filePath}`);
-    
-    // Téléchargement direct depuis le storage Supabase
-    const { data, error } = await supabase.storage
-      .from(pathInfo.bucketName)
-      .download(pathInfo.filePath);
-    
-    if (error) {
-      console.error(`[downloadFile:${requestId}] Erreur lors du téléchargement depuis Supabase:`, error);
-      toast.error(`Erreur: ${error.message}`);
-      return false;
-    }
-    
-    if (!data) {
-      console.error(`[downloadFile:${requestId}] Aucune donnée reçue de Supabase Storage pour: ${fileUrl}`);
-      toast.error("Erreur lors du téléchargement: aucune donnée reçue");
-      return false;
-    }
-    
-    // Création d'un blob et téléchargement
-    const blob = new Blob([data]);
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
-    
-    console.log(`[downloadFile:${requestId}] Téléchargement depuis Supabase réussi pour: ${fileUrl}`);
-    return true;
   } catch (error) {
     console.error("Erreur lors du téléchargement du fichier:", error);
     toast.error("Erreur lors du téléchargement");
@@ -183,5 +249,5 @@ export const downloadFile = async (fileUrl: string, fileName: string): Promise<b
   }
 };
 
-// Ajout d'une fonction d'export avec un nom alternatif pour maintenir la compatibilité
+// Export avec un nom alternatif pour maintenir la compatibilité
 export const downloadDatabaseFile = downloadFile;

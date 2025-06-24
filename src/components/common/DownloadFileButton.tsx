@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, AlertCircle } from 'lucide-react';
 import { useFileDownload } from '@/hooks/useFileDownload';
 
 interface DownloadFileButtonProps {
@@ -23,6 +23,7 @@ export const DownloadFileButton = ({
 }: DownloadFileButtonProps) => {
   const { downloading, handleFileDownload } = useFileDownload();
   const [isDownloadable, setIsDownloadable] = useState<boolean>(true);
+  const [hasError, setHasError] = useState<boolean>(false);
   const isDownloading = downloading === fileUrl;
   
   // ID unique pour les logs de cette instance
@@ -33,12 +34,13 @@ export const DownloadFileButton = ({
       if (!fileUrl) {
         console.log(`[Button ${buttonId}] Pas d'URL de fichier fournie`);
         setIsDownloadable(false);
+        setHasError(true);
         return;
       }
       
       console.log(`[Button ${buttonId}] URL de fichier valide: ${fileUrl}`);
-      // Si on a une URL qui semble valide, on laisse la possibilité de télécharger
       setIsDownloadable(true);
+      setHasError(false);
     };
     
     checkFileDownloadable();
@@ -48,12 +50,23 @@ export const DownloadFileButton = ({
     if (!fileUrl || !isDownloadable) return;
     
     console.log(`[Button ${buttonId}] Clic sur téléchargement pour: ${fileUrl}`);
-    await handleFileDownload(fileUrl, fileName);
+    setHasError(false);
+    
+    const success = await handleFileDownload(fileUrl, fileName);
+    if (!success) {
+      setHasError(true);
+      console.error(`[Button ${buttonId}] Échec du téléchargement pour: ${fileUrl}`);
+    }
   };
 
   if (!fileUrl) {
     console.log(`[Button ${buttonId}] Pas d'URL, button non rendu`);
-    return null;
+    return (
+      <div className="flex items-center gap-2 text-gray-400 text-sm">
+        <AlertCircle className="h-4 w-4" />
+        <span>Fichier non disponible</span>
+      </div>
+    );
   }
 
   const isButtonDisabled = isDownloading || !isDownloadable;
@@ -62,25 +75,35 @@ export const DownloadFileButton = ({
     : `Télécharger ${fileName}`;
 
   return (
-    <Button 
-      variant={variant} 
-      size={size} 
-      onClick={handleClick}
-      className={`flex items-center gap-2 ${className}`}
-      disabled={isButtonDisabled}
-      title={buttonTitle}
-    >
-      {isDownloading ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Téléchargement...
-        </>
-      ) : (
-        <>
-          <Download className="h-4 w-4" />
-          {label}
-        </>
+    <div className="flex items-center gap-2">
+      <Button 
+        variant={hasError ? "destructive" : variant} 
+        size={size} 
+        onClick={handleClick}
+        className={`flex items-center gap-2 ${className}`}
+        disabled={isButtonDisabled}
+        title={buttonTitle}
+      >
+        {isDownloading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Téléchargement...
+          </>
+        ) : hasError ? (
+          <>
+            <AlertCircle className="h-4 w-4" />
+            Réessayer
+          </>
+        ) : (
+          <>
+            <Download className="h-4 w-4" />
+            {label}
+          </>
+        )}
+      </Button>
+      {hasError && (
+        <span className="text-xs text-red-500">Erreur de téléchargement</span>
       )}
-    </Button>
+    </div>
   );
 };
