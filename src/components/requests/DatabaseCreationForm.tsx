@@ -9,7 +9,7 @@ import { FormHeader } from "./database-creation/FormHeader";
 import { TargetingSection } from "./database-creation/TargetingSection";
 import { BlacklistSection } from "./database-creation/BlacklistSection";
 import { FormFooter } from "./database-creation/FormFooter";
-import { databaseCreationSchema, type DatabaseCreationFormData } from "./database-creation/schema";
+import { databaseCreationSchema, type DatabaseCreationFormData, defaultValues } from "./database-creation/schema";
 import { useMissions } from "@/hooks/useMissions";
 import { createDatabaseRequest, updateDatabaseRequest } from "@/services/requests/databaseRequestService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,38 +37,31 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
 
   const form = useForm<DatabaseCreationFormData>({
     resolver: zodResolver(databaseCreationSchema),
-    defaultValues: {
-      title: "",
-      missionId: "",
-      dueDate: "",
-      tool: "Hubspot",
-      jobTitles: "",
-      locations: "",
-      companySize: "",
-      industries: "",
-      otherCriteria: "",
-      blacklistAccountsFileUrls: [],
-      blacklistAccountsNotes: "",
-      blacklistEmailsFileUrls: [],
-      blacklistEmailsNotes: "",
-    },
+    defaultValues,
   });
 
   // Charger les données si on est en mode édition
   useEffect(() => {
     if (isEditMode && initialData) {
-      // Convertir les arrays en strings pour l'affichage dans les textareas
-      const targeting = initialData.targeting || {};
+      // Créer un objet targeting avec des valeurs par défaut
+      const targeting = {
+        jobTitles: [],
+        industries: [],
+        locations: [],
+        companySize: [],
+        otherCriteria: "",
+        ...initialData.targeting // Étendre avec les vraies données si elles existent
+      };
       
       const formData: DatabaseCreationFormData = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
         dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : "",
         tool: (initialData.tool as "Hubspot" | "Apollo") || "Hubspot",
-        jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join('\n') : (targeting.jobTitles || ""),
-        locations: Array.isArray(targeting.locations) ? targeting.locations.join('\n') : (targeting.locations || ""),
-        companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join('\n') : (targeting.companySize || ""),
-        industries: Array.isArray(targeting.industries) ? targeting.industries.join('\n') : (targeting.industries || ""),
+        jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join('\n') : "",
+        locations: Array.isArray(targeting.locations) ? targeting.locations.join('\n') : "",
+        companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join('\n') : "",
+        industries: Array.isArray(targeting.industries) ? targeting.industries.join('\n') : "",
         otherCriteria: targeting.otherCriteria || "",
         blacklistAccountsFileUrls: initialData.blacklist?.accounts?.fileUrls || [],
         blacklistAccountsNotes: initialData.blacklist?.accounts?.notes || "",
@@ -205,7 +198,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormHeader 
           control={form.control} 
-          user={user}
+          missions={missions}
           editMode={isEditMode}
         />
         

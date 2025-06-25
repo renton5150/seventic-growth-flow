@@ -1,3 +1,4 @@
+
 export type RequestStatus = "pending" | "in progress" | "completed" | "canceled";
 export type WorkflowStatus = "pending_assignment" | "pending_approval" | "in_progress" | "in_review" | "ready" | "completed" | "canceled";
 
@@ -62,8 +63,8 @@ export interface Database {
 
 export interface BlacklistItem {
   notes: string;
-  fileUrl: string;
-  fileUrls?: string[]; // Add support for multiple files
+  fileUrl?: string; // Rendre optionnel pour compatibilité
+  fileUrls: string[]; // Utiliser principalement fileUrls
 }
 
 export interface Blacklist {
