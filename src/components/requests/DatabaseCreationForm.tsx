@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -198,7 +197,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormHeader 
           control={form.control} 
-          missions={missions}
+          user={user}
           editMode={isEditMode}
         />
         
