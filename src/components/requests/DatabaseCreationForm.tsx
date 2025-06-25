@@ -10,14 +10,19 @@ import { TargetingSection } from "./database-creation/TargetingSection";
 import { BlacklistSection } from "./database-creation/BlacklistSection";
 import { FormFooter } from "./database-creation/FormFooter";
 import { databaseCreationSchema, type DatabaseCreationFormData } from "./database-creation/schema";
-import { useMissions } from "@/hooks/requests/useMissions";
+import { useMissions } from "@/hooks/useMissions";
 import { createDatabaseRequest, updateDatabaseRequest } from "@/services/requests/databaseRequestService";
-import { getRequestById } from "@/services/requests/requestService";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadBlacklistFile } from "@/services/database/uploadService";
 import { DatabaseRequest } from "@/types/types";
 
-export const DatabaseCreationForm = () => {
+interface DatabaseCreationFormProps {
+  editMode?: boolean;
+  initialData?: DatabaseRequest;
+  onSuccess?: () => void;
+}
+
+export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess }: DatabaseCreationFormProps) => {
   const navigate = useNavigate();
   const { requestId } = useParams<{ requestId: string }>();
   const { user } = useAuth();
@@ -28,7 +33,7 @@ export const DatabaseCreationForm = () => {
   const [blacklistAccountsTab, setBlacklistAccountsTab] = useState("file");
   const [blacklistContactsTab, setBlacklistContactsTab] = useState("file");
 
-  const isEditMode = requestId && requestId !== "new";
+  const isEditMode = editMode || (requestId && requestId !== "new");
 
   const form = useForm<DatabaseCreationFormData>({
     resolver: zodResolver(databaseCreationSchema),
@@ -36,13 +41,12 @@ export const DatabaseCreationForm = () => {
       title: "",
       missionId: "",
       dueDate: "",
-      tool: "",
-      icp: "",
+      tool: "Hubspot",
       jobTitles: "",
       locations: "",
       companySize: "",
       industries: "",
-      additionalCriteria: "",
+      otherCriteria: "",
       blacklistAccountsFileUrls: [],
       blacklistAccountsNotes: "",
       blacklistEmailsFileUrls: [],
@@ -52,48 +56,29 @@ export const DatabaseCreationForm = () => {
 
   // Charger les données si on est en mode édition
   useEffect(() => {
-    const loadRequestData = async () => {
-      if (!isEditMode) return;
+    if (isEditMode && initialData) {
+      // Convertir les arrays en strings pour l'affichage dans les textareas
+      const targeting = initialData.targeting || {};
+      
+      const formData: DatabaseCreationFormData = {
+        title: initialData.title || "",
+        missionId: initialData.missionId || "",
+        dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : "",
+        tool: (initialData.tool as "Hubspot" | "Apollo") || "Hubspot",
+        jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join('\n') : (targeting.jobTitles || ""),
+        locations: Array.isArray(targeting.locations) ? targeting.locations.join('\n') : (targeting.locations || ""),
+        companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join('\n') : (targeting.companySize || ""),
+        industries: Array.isArray(targeting.industries) ? targeting.industries.join('\n') : (targeting.industries || ""),
+        otherCriteria: targeting.otherCriteria || "",
+        blacklistAccountsFileUrls: initialData.blacklist?.accounts?.fileUrls || [],
+        blacklistAccountsNotes: initialData.blacklist?.accounts?.notes || "",
+        blacklistEmailsFileUrls: initialData.blacklist?.emails?.fileUrls || [],
+        blacklistEmailsNotes: initialData.blacklist?.emails?.notes || "",
+      };
 
-      try {
-        setIsLoading(true);
-        const request = await getRequestById(requestId) as DatabaseRequest;
-        
-        if (!request) {
-          toast.error("Demande non trouvée");
-          navigate("/dashboard");
-          return;
-        }
-
-        // Pré-remplir le formulaire avec les données existantes
-        const formData: DatabaseCreationFormData = {
-          title: request.title || "",
-          missionId: request.missionId || "",
-          dueDate: request.dueDate ? new Date(request.dueDate).toISOString().split('T')[0] : "",
-          tool: request.tool || "",
-          icp: request.targeting?.icp || "",
-          jobTitles: request.targeting?.jobTitles || "",
-          locations: request.targeting?.locations || "",
-          companySize: request.targeting?.companySize || "",
-          industries: request.targeting?.industries || "",
-          additionalCriteria: request.targeting?.additionalCriteria || "",
-          blacklistAccountsFileUrls: request.blacklist?.accounts?.fileUrls || [],
-          blacklistAccountsNotes: request.blacklist?.accounts?.notes || "",
-          blacklistEmailsFileUrls: request.blacklist?.emails?.fileUrls || [],
-          blacklistEmailsNotes: request.blacklist?.emails?.notes || "",
-        };
-
-        form.reset(formData);
-      } catch (error) {
-        console.error("Erreur lors du chargement de la demande:", error);
-        toast.error("Erreur lors du chargement de la demande");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadRequestData();
-  }, [isEditMode, requestId, form, navigate]);
+      form.reset(formData);
+    }
+  }, [isEditMode, initialData, form]);
 
   const handleFileUpload = async (field: string, files: FileList | null | string) => {
     console.log(`DatabaseCreationForm - handleFileUpload appelé pour ${field}:`, { files, type: typeof files });
@@ -137,6 +122,11 @@ export const DatabaseCreationForm = () => {
     }
   };
 
+  // Fonction utilitaire pour convertir string en array
+  const stringToArray = (str: string): string[] => {
+    return str.split('\n').map(item => item.trim()).filter(Boolean);
+  };
+
   const onSubmit = async (data: DatabaseCreationFormData) => {
     if (!user?.id) {
       toast.error("Vous devez être connecté pour soumettre une demande");
@@ -158,12 +148,11 @@ export const DatabaseCreationForm = () => {
         dueDate: data.dueDate,
         tool: data.tool,
         targeting: {
-          icp: data.icp,
-          jobTitles: data.jobTitles,
-          locations: data.locations,
-          companySize: data.companySize,
-          industries: data.industries,
-          additionalCriteria: data.additionalCriteria,
+          jobTitles: stringToArray(data.jobTitles),
+          locations: stringToArray(data.locations),
+          companySize: stringToArray(data.companySize),
+          industries: stringToArray(data.industries),
+          otherCriteria: data.otherCriteria,
         },
         blacklist: {
           accounts: {
@@ -178,15 +167,20 @@ export const DatabaseCreationForm = () => {
       };
 
       let result;
-      if (isEditMode) {
-        result = await updateDatabaseRequest(requestId, requestData);
+      if (isEditMode && (requestId || initialData?.id)) {
+        const idToUpdate = requestId || initialData?.id;
+        result = await updateDatabaseRequest(idToUpdate!, requestData);
       } else {
         result = await createDatabaseRequest(requestData);
       }
 
       if (result) {
         toast.success(isEditMode ? "Demande mise à jour avec succès !" : "Demande créée avec succès !");
-        navigate("/dashboard");
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          navigate("/dashboard");
+        }
       } else {
         toast.error(isEditMode ? "Erreur lors de la mise à jour de la demande" : "Erreur lors de la création de la demande");
       }
@@ -211,8 +205,8 @@ export const DatabaseCreationForm = () => {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormHeader 
           control={form.control} 
-          missions={missions}
-          isEditMode={isEditMode}
+          user={user}
+          editMode={isEditMode}
         />
         
         <TargetingSection control={form.control} />
@@ -227,8 +221,8 @@ export const DatabaseCreationForm = () => {
         />
         
         <FormFooter 
-          isSubmitting={isSubmitting}
-          isEditMode={isEditMode}
+          submitting={isSubmitting}
+          editMode={isEditMode}
         />
       </form>
     </Form>

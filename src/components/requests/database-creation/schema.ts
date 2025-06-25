@@ -4,8 +4,9 @@ import { z } from "zod";
 export const databaseCreationSchema = z.object({
   title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
   missionId: z.string().min(1, "Veuillez sélectionner une mission"),
+  dueDate: z.string().min(1, "Veuillez sélectionner une date"),
   tool: z.enum(["Hubspot", "Apollo"]),
-  // Changement : utiliser des strings au lieu d'arrays pour la saisie en textarea
+  // Utiliser des strings pour la saisie en textarea, conversion en arrays lors de la soumission
   jobTitles: z.string().default(""),
   industries: z.string().default(""),
   companySize: z.string().default(""),
@@ -22,6 +23,7 @@ export type DatabaseCreationFormData = z.infer<typeof databaseCreationSchema>;
 export const defaultValues: DatabaseCreationFormData = {
   title: "",
   missionId: "",
+  dueDate: "",
   tool: "Hubspot" as const,
   jobTitles: "",
   industries: "",

@@ -71,6 +71,24 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
 
           <FormField
             control={control}
+            name="locations"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Localisation</FormLabel>
+                <FormControl>
+                  <Textarea 
+                    placeholder="Ex: France, Paris, Lyon (un par ligne)" 
+                    className="min-h-[100px]"
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={control}
             name="otherCriteria"
             render={({ field }) => (
               <FormItem>
