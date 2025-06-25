@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { User } from "@/types/types";
 import { 
@@ -19,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { getMissionsByUserId } from "@/services/missionService";
+import { useMissions } from "@/hooks/useMissions";
 import { getMissionName, syncKnownMissions, forceRefreshFreshworks, isFreshworksId } from "@/services/missionNameService";
 
 interface FormHeaderProps {
@@ -32,6 +31,9 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
   const [missionName, setMissionName] = useState<string>("");
   const [isLoadingMissionName, setIsLoadingMissionName] = useState<boolean>(false);
   
+  // Récupérer les missions disponibles pour l'utilisateur
+  const { data: missions = [], isLoading: missionsLoading } = useMissions();
+  
   // Utiliser useWatch de manière sécurisée
   const watchedMissionId = useWatch({
     control,
@@ -39,13 +41,6 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
     defaultValue: ""
   });
   
-  // Récupérer les missions de l'utilisateur connecté
-  const { data: userMissions = [] } = useQuery({
-    queryKey: ['missions', user?.id],
-    queryFn: () => user?.id ? getMissionsByUserId(user.id) : [],
-    enabled: !!user?.id,
-  });
-
   // Synchroniser le cache de missions en premier
   useEffect(() => {
     const initializeData = async () => {
@@ -161,7 +156,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                     )}
                   </div>
                 ) : (
-                  // En mode création, afficher le sélecteur normal
+                  // En mode création, afficher le sélecteur normal avec toutes les missions
                   <Select 
                     value={missionValue}
                     onValueChange={(value) => {
@@ -190,8 +185,12 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                       <SelectValue placeholder="Sélectionnez une mission" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      {userMissions.length > 0 ? (
-                        userMissions.map((mission) => (
+                      {missionsLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Chargement des missions...
+                        </SelectItem>
+                      ) : missions.length > 0 ? (
+                        missions.map((mission) => (
                           <SelectItem key={mission.id} value={String(mission.id)}>
                             {mission.name}
                           </SelectItem>
@@ -228,7 +227,7 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                     )}
                   >
                     {field.value ? (
-                      format(field.value, "d MMMM yyyy", { locale: fr })
+                      format(typeof field.value === 'string' ? new Date(field.value) : field.value, "d MMMM yyyy", { locale: fr })
                     ) : (
                       <span>Sélectionnez une date</span>
                     )}
@@ -239,8 +238,8 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={field.value}
-                  onSelect={field.onChange}
+                  selected={field.value ? (typeof field.value === 'string' ? new Date(field.value) : field.value) : undefined}
+                  onSelect={(date) => field.onChange(date)}
                   disabled={(date) => date < new Date()}
                   initialFocus
                   className={cn("p-3 pointer-events-auto")}
