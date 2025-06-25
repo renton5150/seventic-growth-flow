@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -164,8 +165,9 @@ function App() {
                   </ProtectedRoute>
                 } />
                 
+                {/* Archives - ACCESSIBLE AUX SDR, GROWTH ET ADMIN */}
                 <Route path="/archives" element={
-                  <ProtectedRoute allowedRoles={['growth', 'admin']}>
+                  <ProtectedRoute allowedRoles={['sdr', 'growth', 'admin']}>
                     <Archives />
                   </ProtectedRoute>
                 } />
