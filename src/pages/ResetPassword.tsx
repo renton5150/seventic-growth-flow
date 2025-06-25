@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Info } from "lucide-react";
+import { AlertCircle, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const ResetPassword = () => {
@@ -30,24 +30,37 @@ const ResetPassword = () => {
       try {
         console.log("Traitement de la réinitialisation de mot de passe");
         console.log("URL complète:", window.location.href);
-        console.log("Hash:", window.location.hash);
-        console.log("Search params:", window.location.search);
         
         // Extraire les paramètres de l'URL
         const type = searchParams.get("type");
         const emailParam = searchParams.get("email");
+        const error = searchParams.get("error");
+        const errorCode = searchParams.get("error_code");
+        const errorDescription = searchParams.get("error_description");
+        
+        console.log("Paramètres extraits:", { type, emailParam, error, errorCode, errorDescription });
         
         if (emailParam) {
-          console.log("Email trouvé dans les paramètres:", emailParam);
           setEmail(emailParam);
         }
         
         if (type === "invite") {
-          console.log("Type d'invitation détecté");
           setIsInvite(true);
         } else if (type === "recovery") {
-          console.log("Type de récupération détecté");
           setIsInvite(false);
+        }
+        
+        // GESTION PRIORITAIRE DES ERREURS
+        if (error || errorCode) {
+          console.error("❌ Erreur détectée dans l'URL:", { error, errorCode, errorDescription });
+          
+          if (errorCode === "otp_expired" || error === "access_denied") {
+            setAuthError("Le lien a expiré ou n'est plus valide. Veuillez demander un nouveau lien de réinitialisation.");
+          } else {
+            setAuthError(errorDescription || error || "Une erreur s'est produite lors de l'authentification.");
+          }
+          setIsProcessingAuth(false);
+          return;
         }
         
         // Traitement du hash s'il est présent
@@ -55,16 +68,15 @@ const ResetPassword = () => {
         if (hash && hash.length > 1) {
           console.log("Hash détecté, tentative d'extraction des tokens");
           
-          // Parser le hash pour extraire les tokens
           const hashParams = new URLSearchParams(hash.substring(1));
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
           const tokenType = hashParams.get('type');
-          const errorParam = hashParams.get('error');
+          const hashError = hashParams.get('error');
           
-          if (errorParam) {
-            console.error("Erreur dans l'URL:", errorParam);
-            setAuthError(`Erreur d'authentification: ${errorParam}`);
+          if (hashError) {
+            console.error("Erreur dans le hash:", hashError);
+            setAuthError(`Erreur d'authentification: ${hashError}`);
             setIsProcessingAuth(false);
             return;
           }
@@ -73,24 +85,22 @@ const ResetPassword = () => {
             console.log("Tokens trouvés, configuration de la session");
             
             try {
-              const { data, error } = await supabase.auth.setSession({
+              const { data, error: sessionError } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken
               });
               
-              if (error) {
-                console.error("Erreur lors de la configuration de la session:", error);
+              if (sessionError) {
+                console.error("Erreur lors de la configuration de la session:", sessionError);
                 setAuthError("Lien expiré ou invalide. Veuillez demander un nouveau lien.");
               } else {
                 console.log("Session configurée avec succès");
                 setHasValidSession(true);
                 
-                // Récupérer l'email de la session si pas dans les paramètres
                 if (!emailParam && data.session?.user?.email) {
                   setEmail(data.session.user.email);
                 }
                 
-                // Déterminer le type basé sur les métadonnées ou le paramètre type
                 if (tokenType === "signup" || type === "invite") {
                   setIsInvite(true);
                 } else if (tokenType === "recovery" || type === "recovery") {
@@ -109,10 +119,10 @@ const ResetPassword = () => {
           // Pas de hash, vérifier s'il y a une session active
           console.log("Pas de hash, vérification de la session existante");
           
-          const { data: { session }, error } = await supabase.auth.getSession();
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
           
-          if (error) {
-            console.error("Erreur lors de la récupération de session:", error);
+          if (sessionError) {
+            console.error("Erreur lors de la récupération de session:", sessionError);
             setAuthError("Erreur lors de la vérification de l'authentification.");
           } else if (session) {
             console.log("Session active trouvée");
@@ -196,7 +206,7 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/reset-password?type=${isInvite ? 'invite' : 'recovery'}&email=${encodeURIComponent(email)}`;
+      const redirectUrl = `${window.location.origin}/auth-callback?type=${isInvite ? 'invite' : 'recovery'}&email=${encodeURIComponent(email)}`;
       
       console.log("Demande d'un nouveau lien avec URL:", redirectUrl);
       
@@ -223,10 +233,9 @@ const ResetPassword = () => {
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <Card className="w-full max-w-md p-4">
           <CardContent className="flex flex-col items-center py-8">
-            <div className="animate-pulse text-center">
-              <p className="text-lg font-medium">Traitement du lien de réinitialisation...</p>
-              <p className="text-sm text-gray-500 mt-2">Veuillez patienter</p>
-            </div>
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
+            <p className="text-lg font-medium">Traitement du lien de réinitialisation...</p>
+            <p className="text-sm text-gray-500 mt-2">Veuillez patienter</p>
           </CardContent>
         </Card>
       </div>
@@ -252,11 +261,11 @@ const ResetPassword = () => {
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Problème d'authentification</AlertTitle>
-                <AlertDescription>{authError}</AlertDescription>
+                <AlertDescription className="whitespace-pre-line">{authError}</AlertDescription>
               </Alert>
               {email && (
                 <div className="mt-4 text-center">
-                  <p className="mb-4">Souhaitez-vous recevoir un nouveau lien ?</p>
+                  <p className="mb-4 text-sm">Souhaitez-vous recevoir un nouveau lien ?</p>
                   <Button 
                     onClick={handleRequestNewLink} 
                     disabled={loading} 
@@ -268,7 +277,10 @@ const ResetPassword = () => {
               )}
               {!email && (
                 <div className="mt-4 text-center">
-                  <p>Veuillez contacter un administrateur pour obtenir une nouvelle invitation.</p>
+                  <p className="text-sm mb-4">Veuillez contacter un administrateur pour obtenir une nouvelle invitation.</p>
+                  <Button variant="outline" onClick={() => navigate("/login")} className="w-full">
+                    Retour à la connexion
+                  </Button>
                 </div>
               )}
             </>

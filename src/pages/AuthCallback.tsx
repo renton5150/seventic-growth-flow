@@ -18,29 +18,32 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log("🔄 Traitement du callback d'authentification - NOUVELLE VERSION");
+        console.log("🔄 Traitement du callback d'authentification");
         console.log("📍 URL complète:", window.location.href);
-        console.log("🔗 Hash détecté:", window.location.hash);
-        console.log("🔍 Search params:", window.location.search);
         
         // Extraire les paramètres de l'URL
         const type = searchParams.get("type");
         const emailParam = searchParams.get("email");
         const error = searchParams.get("error");
+        const errorCode = searchParams.get("error_code");
         const errorDescription = searchParams.get("error_description");
         
-        console.log("📧 Paramètres extraits:", { type, emailParam, error, errorDescription });
+        console.log("📧 Paramètres extraits:", { type, emailParam, error, errorCode, errorDescription });
         
         if (emailParam) {
           setEmail(emailParam);
-          console.log("📧 Email extrait:", emailParam);
         }
         
-        // Vérifier s'il y a une erreur dans l'URL
-        if (error) {
-          console.error("❌ Erreur dans l'URL:", error, errorDescription);
+        // GESTION PRIORITAIRE DES ERREURS
+        if (error || errorCode) {
+          console.error("❌ Erreur détectée:", { error, errorCode, errorDescription });
           setStatus("error");
-          setMessage(errorDescription || error);
+          
+          if (errorCode === "otp_expired" || error === "access_denied") {
+            setMessage("Le lien a expiré ou n'est plus valide. Veuillez demander un nouveau lien de réinitialisation.");
+          } else {
+            setMessage(errorDescription || error || "Une erreur s'est produite lors de l'authentification.");
+          }
           return;
         }
         
@@ -48,19 +51,28 @@ const AuthCallback = () => {
         const hash = window.location.hash;
         console.log("🔗 Hash analysé:", hash);
         
-        // Gérer les tokens dans le hash - CORRECTION DE LA LOGIQUE
+        // Gérer les tokens dans le hash
         if (hash && hash.length > 1) {
           const hashParams = new URLSearchParams(hash.substring(1));
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token') || '';
           const tokenType = hashParams.get('type');
+          const hashError = hashParams.get('error');
           
           console.log("🔑 Tokens trouvés dans le hash:", { 
             hasAccessToken: !!accessToken, 
             hasRefreshToken: !!refreshToken,
             tokenType,
-            allHashParams: Object.fromEntries(hashParams.entries())
+            hashError
           });
+          
+          // Vérifier s'il y a une erreur dans le hash
+          if (hashError) {
+            console.error("❌ Erreur dans le hash:", hashError);
+            setStatus("error");
+            setMessage("Le lien d'authentification est invalide ou a expiré.");
+            return;
+          }
           
           if (accessToken) {
             try {
@@ -82,15 +94,15 @@ const AuthCallback = () => {
               setStatus("success");
               
               // Déterminer la redirection selon le type
-              if (type === "invite" || tokenType === "invite") {
+              if (type === "invite" || tokenType === "invite" || tokenType === "signup") {
                 console.log("🎉 Invitation acceptée - redirection vers reset password");
-                setMessage("Compte activé avec succès ! Vous allez être redirigé vers la page de définition du mot de passe.");
+                setMessage("Compte activé avec succès ! Redirection vers la définition du mot de passe...");
                 setTimeout(() => {
                   navigate(`/reset-password?type=invite&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
                 }, 2000);
               } else {
                 console.log("🔄 Récupération de mot de passe - redirection vers reset password");
-                setMessage("Authentification réussie ! Vous allez être redirigé vers la page de réinitialisation du mot de passe.");
+                setMessage("Authentification réussie ! Redirection vers la réinitialisation du mot de passe...");
                 setTimeout(() => {
                   navigate(`/reset-password?type=recovery&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
                 }, 2000);
@@ -109,7 +121,7 @@ const AuthCallback = () => {
         }
         
         // Fallback : vérifier s'il y a une session existante
-        console.log("🔍 Aucun token dans le hash, vérification de session existante...");
+        console.log("🔍 Vérification de session existante...");
         const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
         
         if (getSessionError) {
@@ -132,14 +144,7 @@ const AuthCallback = () => {
             }
           }, 1500);
         } else {
-          console.warn("⚠️ Aucun token ni session trouvé - PROBLÈME POTENTIEL");
-          console.log("🔍 Détails de debug:", {
-            fullUrl: window.location.href,
-            hash: window.location.hash,
-            search: window.location.search,
-            pathname: window.location.pathname
-          });
-          
+          console.warn("⚠️ Aucun token ni session trouvé");
           setStatus("error");
           setMessage("Le lien d'authentification est invalide ou a expiré. Veuillez demander un nouveau lien.");
         }
@@ -151,10 +156,7 @@ const AuthCallback = () => {
       }
     };
     
-    // Délai plus court pour traiter rapidement
-    const timeoutId = setTimeout(handleAuthCallback, 50);
-    
-    return () => clearTimeout(timeoutId);
+    handleAuthCallback();
   }, [searchParams, navigate]);
 
   const handleRequestNewLink = async () => {
@@ -205,7 +207,7 @@ const AuthCallback = () => {
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Erreur d'authentification</AlertTitle>
-              <AlertDescription>{message}</AlertDescription>
+              <AlertDescription className="whitespace-pre-line">{message}</AlertDescription>
             </Alert>
             
             {email && (
