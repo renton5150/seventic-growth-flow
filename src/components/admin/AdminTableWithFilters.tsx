@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +59,8 @@ export const AdminTableWithFilters = ({
 
   // Filter requests based on active filters
   const filteredRequests = useMemo(() => {
+    console.log('🔍 Filtrage en cours - dateFilters:', dateFilters);
+    
     return requests.filter(request => {
       // Type filter
       if (filters.type && filters.type.length > 0) {
@@ -94,15 +95,21 @@ export const AdminTableWithFilters = ({
         return false;
       }
 
-      // Date filters - Fixed logic
+      // Date filters - Fixed logic with debugging
       if (dateFilters.createdAt) {
+        console.log('🗓️ Filtre createdAt:', dateFilters.createdAt);
         const createdDate = new Date(request.created_at);
-        if (!applyDateFilter(createdDate, dateFilters.createdAt)) return false;
+        const result = applyDateFilter(createdDate, dateFilters.createdAt);
+        console.log('🗓️ Résultat filtre createdAt:', result, 'pour date:', createdDate);
+        if (!result) return false;
       }
 
       if (dateFilters.dueDate) {
+        console.log('🗓️ Filtre dueDate:', dateFilters.dueDate);
         const dueDate = new Date(request.due_date);
-        if (!applyDateFilter(dueDate, dateFilters.dueDate)) return false;
+        const result = applyDateFilter(dueDate, dateFilters.dueDate);
+        console.log('🗓️ Résultat filtre dueDate:', result, 'pour date:', dueDate);
+        if (!result) return false;
       }
 
       return true;
@@ -110,43 +117,58 @@ export const AdminTableWithFilters = ({
   }, [requests, filters, dateFilters, titleSearch, userProfiles, missionNames]);
 
   const applyDateFilter = (date: Date, filter: any) => {
-    if (!filter || !filter.type) return true;
+    console.log('🔍 applyDateFilter - date:', date, 'filter:', filter);
+    
+    if (!filter || !filter.type) {
+      console.log('🔍 Pas de filtre ou pas de type, retour true');
+      return true;
+    }
     
     try {
       switch (filter.type) {
         case 'equals':
           if (filter.date) {
             const filterDate = new Date(filter.date);
-            return date.toDateString() === filterDate.toDateString();
+            const result = date.toDateString() === filterDate.toDateString();
+            console.log('🔍 equals - filterDate:', filterDate, 'result:', result);
+            return result;
           }
           break;
         case 'before':
           if (filter.date) {
             const filterDate = new Date(filter.date);
-            return date < filterDate;
+            const result = date < filterDate;
+            console.log('🔍 before - filterDate:', filterDate, 'result:', result);
+            return result;
           }
           break;
         case 'after':
           if (filter.date) {
             const filterDate = new Date(filter.date);
-            return date > filterDate;
+            const result = date > filterDate;
+            console.log('🔍 after - filterDate:', filterDate, 'result:', result);
+            return result;
           }
           break;
         case 'between':
           if (filter.startDate && filter.endDate) {
             const startDate = new Date(filter.startDate);
             const endDate = new Date(filter.endDate);
-            return date >= startDate && date <= endDate;
+            const result = date >= startDate && date <= endDate;
+            console.log('🔍 between - startDate:', startDate, 'endDate:', endDate, 'result:', result);
+            return result;
           }
           break;
         default:
+          console.log('🔍 Type de filtre non reconnu:', filter.type);
           return true;
       }
     } catch (error) {
-      console.error('Erreur lors du filtrage de date:', error);
+      console.error('❌ Erreur lors du filtrage de date:', error, 'filter:', filter);
       return true;
     }
     
+    console.log('🔍 Fin de applyDateFilter sans match, retour true');
     return true;
   };
 
@@ -158,18 +180,32 @@ export const AdminTableWithFilters = ({
   };
 
   const handleDateFilterChange = (field: string, type: string | null, values: any) => {
+    console.log('📅 handleDateFilterChange - field:', field, 'type:', type, 'values:', values);
+    
     setDateFilters(prev => {
       if (type === null) {
         // Remove the filter
+        console.log('📅 Suppression du filtre pour:', field);
         const newFilters = { ...prev };
         delete newFilters[field];
         return newFilters;
       }
       
-      return {
-        ...prev,
-        [field]: { type, ...values }
+      // Restructurer correctement les données
+      const newFilter = {
+        type,
+        ...values // values contient déjà { date } ou { startDate, endDate }
       };
+      
+      console.log('📅 Nouveau filtre créé:', newFilter);
+      
+      const newFilters = {
+        ...prev,
+        [field]: newFilter
+      };
+      
+      console.log('📅 Tous les filtres après mise à jour:', newFilters);
+      return newFilters;
     });
   };
 
@@ -208,6 +244,7 @@ export const AdminTableWithFilters = ({
       const date = new Date(dateString);
       return format(date, "dd/MM/yyyy à HH:mm", { locale: fr });
     } catch (error) {
+      console.error('❌ Erreur formatage date:', error, 'dateString:', dateString);
       return dateString;
     }
   };
