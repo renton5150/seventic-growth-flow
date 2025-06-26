@@ -94,7 +94,7 @@ export const AdminTableWithFilters = ({
         return false;
       }
 
-      // Date filters
+      // Date filters - Fixed logic
       if (dateFilters.createdAt) {
         const createdDate = new Date(request.created_at);
         if (!applyDateFilter(createdDate, dateFilters.createdAt)) return false;
@@ -110,30 +110,44 @@ export const AdminTableWithFilters = ({
   }, [requests, filters, dateFilters, titleSearch, userProfiles, missionNames]);
 
   const applyDateFilter = (date: Date, filter: any) => {
-    if (!filter) return true;
+    if (!filter || !filter.type) return true;
     
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    switch (filter.type) {
-      case 'today':
-        return date.toDateString() === today.toDateString();
-      case 'yesterday':
-        return date.toDateString() === yesterday.toDateString();
-      case 'thisWeek':
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        return date >= weekStart && date <= today;
-      case 'thisMonth':
-        return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
-      case 'custom':
-        if (filter.startDate && date < new Date(filter.startDate)) return false;
-        if (filter.endDate && date > new Date(filter.endDate)) return false;
-        return true;
-      default:
-        return true;
+    try {
+      switch (filter.type) {
+        case 'equals':
+          if (filter.date) {
+            const filterDate = new Date(filter.date);
+            return date.toDateString() === filterDate.toDateString();
+          }
+          break;
+        case 'before':
+          if (filter.date) {
+            const filterDate = new Date(filter.date);
+            return date < filterDate;
+          }
+          break;
+        case 'after':
+          if (filter.date) {
+            const filterDate = new Date(filter.date);
+            return date > filterDate;
+          }
+          break;
+        case 'between':
+          if (filter.startDate && filter.endDate) {
+            const startDate = new Date(filter.startDate);
+            const endDate = new Date(filter.endDate);
+            return date >= startDate && date <= endDate;
+          }
+          break;
+        default:
+          return true;
+      }
+    } catch (error) {
+      console.error('Erreur lors du filtrage de date:', error);
+      return true;
     }
+    
+    return true;
   };
 
   const handleFilterChange = (column: string, values: string[]) => {
@@ -143,11 +157,20 @@ export const AdminTableWithFilters = ({
     }));
   };
 
-  const handleDateFilterChange = (field: string, type: string, values: any) => {
-    setDateFilters(prev => ({
-      ...prev,
-      [field]: { type, ...values }
-    }));
+  const handleDateFilterChange = (field: string, type: string | null, values: any) => {
+    setDateFilters(prev => {
+      if (type === null) {
+        // Remove the filter
+        const newFilters = { ...prev };
+        delete newFilters[field];
+        return newFilters;
+      }
+      
+      return {
+        ...prev,
+        [field]: { type, ...values }
+      };
+    });
   };
 
   const clearAllFilters = () => {
@@ -181,8 +204,12 @@ export const AdminTableWithFilters = ({
   };
 
   const formatDateWithTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return format(date, "dd/MM/yyyy à HH:mm", { locale: fr });
+    try {
+      const date = new Date(dateString);
+      return format(date, "dd/MM/yyyy à HH:mm", { locale: fr });
+    } catch (error) {
+      return dateString;
+    }
   };
 
   return (
