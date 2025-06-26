@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateRequestMenu } from "@/components/dashboard/CreateRequestMenu";
 import { getMissionName, preloadMissionNames } from "@/services/missionNameService";
-import { AdminTableWithFilters } from "@/components/admin/AdminTableWithFilters";
+import { AdminTableWithFiltersRefactored } from "@/components/admin/AdminTableWithFiltersRefactored";
 
 interface SimpleRequest {
   id: string;
@@ -347,7 +346,7 @@ const AdminDashboardNew = () => {
           </div>
           
           <div className="p-4">
-            <AdminTableWithFilters
+            <AdminTableWithFiltersRefactored
               requests={filteredRequests}
               userProfiles={userProfiles}
               missionNames={missionNames}
