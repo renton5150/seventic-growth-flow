@@ -1,0 +1,380 @@
+
+import { useState, useEffect, useMemo } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Eye, Search, Filter, X } from "lucide-react";
+import { CheckboxColumnFilter } from "@/components/growth/filters/CheckboxColumnFilter";
+import { DateColumnFilter } from "@/components/growth/filters/DateColumnFilter";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+
+interface SimpleRequest {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  workflow_status: string;
+  created_by: string;
+  assigned_to: string | null;
+  created_at: string;
+  due_date: string;
+  mission_id: string | null;
+}
+
+interface AdminTableWithFiltersProps {
+  requests: SimpleRequest[];
+  userProfiles: {[key: string]: string};
+  missionNames: {[key: string]: string};
+  onViewRequest: (requestId: string) => void;
+}
+
+export const AdminTableWithFilters = ({ 
+  requests, 
+  userProfiles, 
+  missionNames, 
+  onViewRequest 
+}: AdminTableWithFiltersProps) => {
+  const [filters, setFilters] = useState<{[key: string]: string[]}>({});
+  const [dateFilters, setDateFilters] = useState<{[key: string]: any}>({});
+  const [titleSearch, setTitleSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Extract unique values for filters
+  const uniqueValues = useMemo(() => {
+    const types = [...new Set(requests.map(r => r.type))];
+    const missions = [...new Set(requests.map(r => r.mission_id ? missionNames[r.mission_id] || 'Mission inconnue' : 'Non assignée'))];
+    const creators = [...new Set(requests.map(r => userProfiles[r.created_by] || 'Inconnu'))];
+    const assignees = [...new Set(requests.map(r => r.assigned_to ? userProfiles[r.assigned_to] || 'Inconnu' : 'Non assigné'))];
+    const statuses = [...new Set(requests.map(r => r.workflow_status))];
+
+    return {
+      type: types,
+      mission: missions,
+      createdBy: creators,
+      assignedTo: assignees,
+      status: statuses
+    };
+  }, [requests, userProfiles, missionNames]);
+
+  // Filter requests based on active filters
+  const filteredRequests = useMemo(() => {
+    return requests.filter(request => {
+      // Type filter
+      if (filters.type && filters.type.length > 0) {
+        if (!filters.type.includes(request.type)) return false;
+      }
+
+      // Mission filter
+      if (filters.mission && filters.mission.length > 0) {
+        const missionName = request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée';
+        if (!filters.mission.includes(missionName)) return false;
+      }
+
+      // Creator filter
+      if (filters.createdBy && filters.createdBy.length > 0) {
+        const creatorName = userProfiles[request.created_by] || 'Inconnu';
+        if (!filters.createdBy.includes(creatorName)) return false;
+      }
+
+      // Assignee filter
+      if (filters.assignedTo && filters.assignedTo.length > 0) {
+        const assigneeName = request.assigned_to ? userProfiles[request.assigned_to] || 'Inconnu' : 'Non assigné';
+        if (!filters.assignedTo.includes(assigneeName)) return false;
+      }
+
+      // Status filter
+      if (filters.status && filters.status.length > 0) {
+        if (!filters.status.includes(request.workflow_status)) return false;
+      }
+
+      // Title search
+      if (titleSearch && !request.title.toLowerCase().includes(titleSearch.toLowerCase())) {
+        return false;
+      }
+
+      // Date filters
+      if (dateFilters.createdAt) {
+        const createdDate = new Date(request.created_at);
+        if (!applyDateFilter(createdDate, dateFilters.createdAt)) return false;
+      }
+
+      if (dateFilters.dueDate) {
+        const dueDate = new Date(request.due_date);
+        if (!applyDateFilter(dueDate, dateFilters.dueDate)) return false;
+      }
+
+      return true;
+    });
+  }, [requests, filters, dateFilters, titleSearch, userProfiles, missionNames]);
+
+  const applyDateFilter = (date: Date, filter: any) => {
+    if (!filter) return true;
+    
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    switch (filter.type) {
+      case 'today':
+        return date.toDateString() === today.toDateString();
+      case 'yesterday':
+        return date.toDateString() === yesterday.toDateString();
+      case 'thisWeek':
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        return date >= weekStart && date <= today;
+      case 'thisMonth':
+        return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+      case 'custom':
+        if (filter.startDate && date < new Date(filter.startDate)) return false;
+        if (filter.endDate && date > new Date(filter.endDate)) return false;
+        return true;
+      default:
+        return true;
+    }
+  };
+
+  const handleFilterChange = (column: string, values: string[]) => {
+    setFilters(prev => ({
+      ...prev,
+      [column]: values
+    }));
+  };
+
+  const handleDateFilterChange = (field: string, type: string, values: any) => {
+    setDateFilters(prev => ({
+      ...prev,
+      [field]: { type, ...values }
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({});
+    setDateFilters({});
+    setTitleSearch("");
+  };
+
+  const hasActiveFilters = Object.keys(filters).some(key => filters[key]?.length > 0) || 
+                          Object.keys(dateFilters).length > 0 || 
+                          titleSearch.length > 0;
+
+  const getStatusBadge = (status: string, workflowStatus: string) => {
+    if (workflowStatus === 'completed') {
+      return <Badge variant="outline" className="bg-green-100 text-green-800">Terminée</Badge>;
+    }
+    if (workflowStatus === 'in_progress') {
+      return <Badge variant="outline" className="bg-blue-100 text-blue-800">En cours</Badge>;
+    }
+    return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">En attente</Badge>;
+  };
+
+  const getTypeBadge = (type: string) => {
+    const colors = {
+      'email_campaign': 'bg-purple-100 text-purple-800',
+      'database_creation': 'bg-orange-100 text-orange-800',
+      'linkedin_scraping': 'bg-blue-100 text-blue-800'
+    };
+    const color = colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return <Badge variant="outline" className={color}>{type}</Badge>;
+  };
+
+  const formatDateWithTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return format(date, "dd/MM/yyyy à HH:mm", { locale: fr });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Filter Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filtres {hasActiveFilters && `(${Object.keys(filters).filter(k => filters[k]?.length > 0).length + Object.keys(dateFilters).length + (titleSearch ? 1 : 0)})`}
+          </Button>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+              <X className="h-4 w-4 mr-2" />
+              Effacer tout
+            </Button>
+          )}
+        </div>
+        <div className="text-sm text-gray-600">
+          {filteredRequests.length} demande(s) affichée(s) sur {requests.length}
+        </div>
+      </div>
+
+      {/* Search */}
+      {showFilters && (
+        <div className="relative w-64">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher dans les titres..."
+            value={titleSearch}
+            onChange={(e) => setTitleSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                <div className="flex flex-col space-y-2">
+                  <span>Type</span>
+                  {showFilters && (
+                    <CheckboxColumnFilter
+                      values={uniqueValues.type}
+                      selectedValues={filters.type || []}
+                      onSelectionChange={(selected) => handleFilterChange('type', selected)}
+                    />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex flex-col space-y-2">
+                  <span>Mission</span>
+                  {showFilters && (
+                    <CheckboxColumnFilter
+                      values={uniqueValues.mission}
+                      selectedValues={filters.mission || []}
+                      onSelectionChange={(selected) => handleFilterChange('mission', selected)}
+                    />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead>Titre</TableHead>
+              <TableHead>
+                <div className="flex flex-col space-y-2">
+                  <span>Créé par</span>
+                  {showFilters && (
+                    <CheckboxColumnFilter
+                      values={uniqueValues.createdBy}
+                      selectedValues={filters.createdBy || []}
+                      onSelectionChange={(selected) => handleFilterChange('createdBy', selected)}
+                    />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex flex-col space-y-2">
+                  <span>Assigné à</span>
+                  {showFilters && (
+                    <CheckboxColumnFilter
+                      values={uniqueValues.assignedTo}
+                      selectedValues={filters.assignedTo || []}
+                      onSelectionChange={(selected) => handleFilterChange('assignedTo', selected)}
+                    />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex flex-col space-y-2">
+                  <span>Statut</span>
+                  {showFilters && (
+                    <CheckboxColumnFilter
+                      values={uniqueValues.status}
+                      selectedValues={filters.status || []}
+                      onSelectionChange={(selected) => handleFilterChange('status', selected)}
+                    />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex flex-col space-y-2">
+                  <span>Date création</span>
+                  {showFilters && (
+                    <DateColumnFilter
+                      selectedFilter={dateFilters.createdAt}
+                      onFilterChange={(type, values) => handleDateFilterChange('createdAt', type, values)}
+                    />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex flex-col space-y-2">
+                  <span>Date limite</span>
+                  {showFilters && (
+                    <DateColumnFilter
+                      selectedFilter={dateFilters.dueDate}
+                      onFilterChange={(type, values) => handleDateFilterChange('dueDate', type, values)}
+                    />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredRequests.map((request) => (
+              <TableRow key={request.id}>
+                <TableCell>
+                  {getTypeBadge(request.type)}
+                </TableCell>
+                <TableCell className="font-medium">
+                  <div className="max-w-[150px] truncate" title={request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}>
+                    {request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}
+                  </div>
+                </TableCell>
+                <TableCell className="font-medium">
+                  <div className="max-w-[200px] truncate" title={request.title}>
+                    {request.title}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {userProfiles[request.created_by] || 'Inconnu'}
+                </TableCell>
+                <TableCell>
+                  {request.assigned_to ? userProfiles[request.assigned_to] || 'Inconnu' : 'Non assigné'}
+                </TableCell>
+                <TableCell>
+                  {getStatusBadge(request.status, request.workflow_status)}
+                </TableCell>
+                <TableCell>
+                  {formatDateWithTime(request.created_at)}
+                </TableCell>
+                <TableCell>
+                  {formatDateWithTime(request.due_date)}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onViewRequest(request.id)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        
+        {filteredRequests.length === 0 && (
+          <div className="p-8 text-center text-gray-500">
+            <p>Aucune demande trouvée avec les filtres actifs</p>
+            {hasActiveFilters && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={clearAllFilters}
+                className="mt-2"
+              >
+                Effacer tous les filtres
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

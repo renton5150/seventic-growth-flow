@@ -7,10 +7,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Plus, Eye, Users, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateRequestMenu } from "@/components/dashboard/CreateRequestMenu";
 import { getMissionName, preloadMissionNames } from "@/services/missionNameService";
+import { AdminTableWithFilters } from "@/components/admin/AdminTableWithFilters";
 
 interface SimpleRequest {
   id: string;
@@ -52,13 +52,12 @@ const AdminDashboardNew = () => {
       try {
         console.log("🚀 AdminDashboardNew: Récupération des données");
 
-        // Test 1: Récupérer les demandes directement depuis la table requests
         // EXCLUSION DES DEMANDES TERMINÉES
         console.log("📊 Récupération des demandes (hors terminées)...");
         const { data: requestsData, error: requestsError } = await supabase
           .from('requests')
           .select('*')
-          .neq('workflow_status', 'completed') // Exclure les demandes terminées
+          .neq('workflow_status', 'completed')
           .order('created_at', { ascending: false });
 
         if (requestsError) {
@@ -69,7 +68,7 @@ const AdminDashboardNew = () => {
         console.log("✅ Demandes récupérées (hors terminées):", requestsData?.length || 0);
         setRequests(requestsData || []);
 
-        // Test 2: Récupérer les utilisateurs depuis la table profiles
+        // Récupérer les utilisateurs depuis la table profiles
         console.log("👥 Récupération des utilisateurs...");
         const { data: usersData, error: usersError } = await supabase
           .from('profiles')
@@ -101,7 +100,6 @@ const AdminDashboardNew = () => {
             console.log("🔍 Préchargement des noms de missions...");
             await preloadMissionNames(missionIds);
             
-            // Récupérer les noms de missions
             const missionsMap: {[key: string]: string} = {};
             for (const missionId of missionIds) {
               const missionName = await getMissionName(missionId);
@@ -138,7 +136,6 @@ const AdminDashboardNew = () => {
     // Puis filtrage par type de statut
     switch (activeFilter) {
       case "pending":
-        // CORRECTION: Uniquement les demandes avec workflow_status 'pending_assignment'
         filtered = filtered.filter(r => r.workflow_status === 'pending_assignment');
         break;
       case "inprogress":
@@ -152,12 +149,10 @@ const AdminDashboardNew = () => {
         });
         break;
       case "completed":
-        // Les demandes terminées sont exclues de la requête, donc array vide
         filtered = [];
         break;
       case "all":
       default:
-        // Garde toutes les demandes actives
         break;
     }
     
@@ -165,17 +160,16 @@ const AdminDashboardNew = () => {
     setFilteredRequests(filtered);
   }, [selectedUserId, requests, activeFilter]);
 
-  // Redirection si pas admin - DÉPLACÉ APRÈS LES HOOKS
+  // Redirection si pas admin
   if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Calcul des statistiques CORRIGÉES (les demandes terminées sont déjà exclues)
+  // Calcul des statistiques
   const totalRequests = filteredRequests.length;
-  // CORRECTION: Uniquement workflow_status === 'pending_assignment'
   const pendingRequests = filteredRequests.filter(r => r.workflow_status === 'pending_assignment').length;
   const inProgressRequests = filteredRequests.filter(r => r.workflow_status === 'in_progress').length;
-  const completedRequests = 0; // Les demandes terminées sont exclues, donc toujours 0
+  const completedRequests = 0;
   const overdueRequests = filteredRequests.filter(r => {
     const dueDate = new Date(r.due_date);
     const now = new Date();
@@ -193,26 +187,6 @@ const AdminDashboardNew = () => {
   const handleFilterClick = (filterType: FilterType) => {
     console.log(`📊 Card cliquée: ${filterType}`);
     setActiveFilter(filterType);
-  };
-
-  const getStatusBadge = (status: string, workflowStatus: string) => {
-    if (workflowStatus === 'completed') {
-      return <Badge variant="outline" className="bg-green-100 text-green-800">Terminée</Badge>;
-    }
-    if (workflowStatus === 'in_progress') {
-      return <Badge variant="outline" className="bg-blue-100 text-blue-800">En cours</Badge>;
-    }
-    return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">En attente</Badge>;
-  };
-
-  const getTypeBadge = (type: string) => {
-    const colors = {
-      'email_campaign': 'bg-purple-100 text-purple-800',
-      'database_creation': 'bg-orange-100 text-orange-800',
-      'linkedin_scraping': 'bg-blue-100 text-blue-800'
-    };
-    const color = colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-    return <Badge variant="outline" className={color}>{type}</Badge>;
   };
 
   if (loading) {
@@ -365,84 +339,21 @@ const AdminDashboardNew = () => {
           </Card>
         </div>
 
-        {/* Tableau des demandes */}
+        {/* Tableau des demandes avec filtres */}
         <div className="bg-white rounded-lg border">
           <div className="p-4 border-b">
             <h3 className="text-lg font-semibold">Liste des demandes actives</h3>
             <p className="text-sm text-gray-600">Les demandes terminées sont consultables dans les Archives</p>
           </div>
           
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Mission</TableHead>
-                <TableHead>Titre</TableHead>
-                <TableHead>Créé par</TableHead>
-                <TableHead>Assigné à</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Date création</TableHead>
-                <TableHead>Date limite</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRequests.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell>
-                    {getTypeBadge(request.type)}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="max-w-[150px] truncate" title={request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}>
-                      {request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{request.title}</TableCell>
-                  <TableCell>
-                    {userProfiles[request.created_by] || 'Inconnu'}
-                  </TableCell>
-                  <TableCell>
-                    {request.assigned_to ? userProfiles[request.assigned_to] || 'Inconnu' : 'Non assigné'}
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(request.status, request.workflow_status)}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(request.created_at).toLocaleDateString('fr-FR')}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(request.due_date).toLocaleDateString('fr-FR')}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleViewRequest(request.id)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          
-          {filteredRequests.length === 0 && (
-            <div className="p-8 text-center text-gray-500">
-              {activeFilter === "completed" 
-                ? "Aucune demande terminée affichée ici"
-                : selectedUser 
-                  ? `Aucune demande ${activeFilter !== "all" ? `(${activeFilter})` : "active"} trouvée pour ${selectedUser.name}`
-                  : `Aucune demande ${activeFilter !== "all" ? `(${activeFilter})` : "active"} trouvée`
-              }
-              <p className="text-sm mt-2">
-                {activeFilter === "completed" 
-                  ? "Les demandes terminées sont consultables dans les Archives"
-                  : "Les demandes terminées sont dans les Archives"
-                }
-              </p>
-            </div>
-          )}
+          <div className="p-4">
+            <AdminTableWithFilters
+              requests={filteredRequests}
+              userProfiles={userProfiles}
+              missionNames={missionNames}
+              onViewRequest={handleViewRequest}
+            />
+          </div>
         </div>
       </div>
     </AppLayout>
