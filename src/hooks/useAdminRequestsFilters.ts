@@ -43,15 +43,27 @@ export const useAdminRequestsFilters = (
     return values;
   }, [requests, userProfiles, missionNames]);
 
-  // Convertir les SimpleRequest vers le format attendu par sortRequests
+  // Convertir les SimpleRequest vers le format attendu par sortRequests (format Request)
   const convertedRequests = useMemo(() => {
     return requests.map(request => ({
-      ...request,
-      createdAt: request.created_at,
-      dueDate: request.due_date,
+      id: request.id,
+      title: request.title,
+      type: request.type,
+      status: request.status,
+      workflow_status: request.workflow_status,
+      createdBy: request.created_by, // Conversion snake_case vers camelCase
+      assignedToName: request.assigned_to ? userProfiles[request.assigned_to] || 'Inconnu' : 'Non assigné',
+      assigned_to: request.assigned_to,
+      createdAt: request.created_at, // Conversion snake_case vers camelCase
+      dueDate: request.due_date, // Conversion snake_case vers camelCase
+      missionId: request.mission_id, // Conversion snake_case vers camelCase
       missionName: request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée',
+      missionClient: request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée', // Simplifié pour ce cas
       sdrName: userProfiles[request.created_by] || 'Inconnu',
-      assignedToName: request.assigned_to ? userProfiles[request.assigned_to] || 'Inconnu' : 'Non assigné'
+      details: {}, // Objet vide pour satisfaire l'interface
+      isLate: false, // Valeur par défaut
+      lastUpdated: new Date(request.created_at), // Valeur par défaut
+      target_role: 'growth' // Valeur par défaut
     }));
   }, [requests, userProfiles, missionNames]);
 

@@ -237,8 +237,8 @@ export const AdminTableWithFiltersRefactored = ({
                   {getTypeBadge(request.type)}
                 </TableCell>
                 <TableCell className="font-medium">
-                  <div className="max-w-[150px] truncate" title={request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}>
-                    {request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée'}
+                  <div className="max-w-[150px] truncate" title={request.missionName || 'Mission inconnue'}>
+                    {request.missionName || 'Mission inconnue'}
                   </div>
                 </TableCell>
                 <TableCell className="font-medium">
@@ -247,19 +247,19 @@ export const AdminTableWithFiltersRefactored = ({
                   </div>
                 </TableCell>
                 <TableCell>
-                  {userProfiles[request.created_by] || 'Inconnu'}
+                  {request.sdrName || 'Inconnu'}
                 </TableCell>
                 <TableCell>
-                  {request.assigned_to ? userProfiles[request.assigned_to] || 'Inconnu' : 'Non assigné'}
+                  {request.assignedToName || 'Non assigné'}
                 </TableCell>
                 <TableCell>
                   {getStatusBadge(request.status, request.workflow_status)}
                 </TableCell>
                 <TableCell>
-                  {formatDateWithTime(request.created_at)}
+                  {formatDateWithTime(request.createdAt)}
                 </TableCell>
                 <TableCell>
-                  {formatDateWithTime(request.due_date)}
+                  {formatDateWithTime(request.dueDate)}
                 </TableCell>
                 <TableCell>
                   <Button
