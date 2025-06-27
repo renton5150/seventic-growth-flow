@@ -1,6 +1,7 @@
 
 import { useState, useMemo } from "react";
 import { sortRequests } from "@/utils/requestSorting";
+import { RequestStatus, WorkflowStatus } from "@/types/types";
 
 interface SimpleRequest {
   id: string;
@@ -49,13 +50,13 @@ export const useAdminRequestsFilters = (
       id: request.id,
       title: request.title,
       type: request.type,
-      status: request.status,
-      workflow_status: request.workflow_status,
+      status: request.status as RequestStatus,
+      workflow_status: request.workflow_status as WorkflowStatus,
       createdBy: request.created_by, // Conversion snake_case vers camelCase
       assignedToName: request.assigned_to ? userProfiles[request.assigned_to] || 'Inconnu' : 'Non assigné',
       assigned_to: request.assigned_to,
-      createdAt: request.created_at, // Conversion snake_case vers camelCase
-      dueDate: request.due_date, // Conversion snake_case vers camelCase
+      createdAt: new Date(request.created_at), // Conversion en Date
+      dueDate: request.due_date, // Garder comme string pour compatibility
       missionId: request.mission_id, // Conversion snake_case vers camelCase
       missionName: request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée',
       missionClient: request.mission_id ? missionNames[request.mission_id] || 'Mission inconnue' : 'Non assignée', // Simplifié pour ce cas

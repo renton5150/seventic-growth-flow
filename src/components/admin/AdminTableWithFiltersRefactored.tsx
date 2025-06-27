@@ -82,13 +82,13 @@ export const AdminTableWithFiltersRefactored = ({
     return <Badge variant="outline" className={color}>{type}</Badge>;
   };
 
-  const formatDateWithTime = (dateString: string) => {
+  const formatDateWithTime = (dateInput: string | Date) => {
     try {
-      const date = new Date(dateString);
+      const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
       return format(date, "dd/MM/yyyy à HH:mm", { locale: fr });
     } catch (error) {
-      console.error('❌ Erreur formatage date:', error, 'dateString:', dateString);
-      return dateString;
+      console.error('❌ Erreur formatage date:', error, 'dateInput:', dateInput);
+      return String(dateInput);
     }
   };
 
