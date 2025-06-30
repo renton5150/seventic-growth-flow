@@ -4,12 +4,10 @@ import { z } from "zod";
 export const databaseCreationSchema = z.object({
   title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
   missionId: z.string().min(1, "Veuillez sélectionner une mission"),
-  dueDate: z.union([z.string().min(1, "Veuillez sélectionner une date"), z.date()]).transform((val) => {
-    if (val instanceof Date) {
-      return val.toISOString().split('T')[0];
-    }
-    return val;
-  }),
+  dueDate: z.string().min(1, "Veuillez sélectionner une date et heure").refine((val) => {
+    const date = new Date(val);
+    return date > new Date();
+  }, "La date de livraison doit être dans le futur"),
   tool: z.enum(["Hubspot", "Apollo"]),
   // Utiliser des strings pour la saisie en textarea, conversion en arrays lors de la soumission
   jobTitles: z.string().default(""),

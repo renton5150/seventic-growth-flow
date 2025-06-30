@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Control, useWatch } from "react-hook-form";
 import { CalendarIcon } from "lucide-react";
@@ -215,37 +214,19 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
         name="dueDate"
         render={({ field }) => (
           <FormItem className="flex flex-col">
-            <FormLabel>Date de livraison souhaitée</FormLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <FormControl>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full pl-3 text-left font-normal",
-                      !field.value && "text-muted-foreground"
-                    )}
-                  >
-                    {field.value ? (
-                      format(typeof field.value === 'string' ? new Date(field.value) : field.value, "d MMMM yyyy", { locale: fr })
-                    ) : (
-                      <span>Sélectionnez une date</span>
-                    )}
-                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                  </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={field.value ? (typeof field.value === 'string' ? new Date(field.value) : field.value) : undefined}
-                  onSelect={(date) => field.onChange(date)}
-                  disabled={(date) => date < new Date()}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
+            <FormLabel>Date et heure de livraison souhaitée</FormLabel>
+            <FormControl>
+              <Input
+                type="datetime-local"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                className={cn(
+                  "w-full pl-3 text-left font-normal",
+                  !field.value && "text-muted-foreground"
+                )}
+                min={new Date().toISOString().slice(0, 16)}
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )}

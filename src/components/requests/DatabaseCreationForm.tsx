@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,10 +53,17 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         ...initialData.targeting // Étendre avec les vraies données si elles existent
       };
       
+      // Convertir la date ISO en format datetime-local
+      let dueDateForForm = "";
+      if (initialData.dueDate) {
+        const date = new Date(initialData.dueDate);
+        dueDateForForm = date.toISOString().slice(0, 16);
+      }
+      
       const formData: DatabaseCreationFormData = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
-        dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : "",
+        dueDate: dueDateForForm,
         tool: (initialData.tool as "Hubspot" | "Apollo") || "Hubspot",
         jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join('\n') : "",
         locations: Array.isArray(targeting.locations) ? targeting.locations.join('\n') : "",
@@ -137,7 +145,7 @@ export const DatabaseCreationForm = ({ editMode = false, initialData, onSuccess 
         title: data.title,
         missionId: data.missionId,
         createdBy: user.id,
-        dueDate: data.dueDate,
+        dueDate: data.dueDate, // Envoyer directement la string datetime-local
         tool: data.tool,
         targeting: {
           jobTitles: stringToArray(data.jobTitles),
