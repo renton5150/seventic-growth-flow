@@ -25,31 +25,38 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
-  // Fonction pour convertir les données initiales
+  // Fonction pour convertir les données initiales avec une gestion sûre des types
   const getInitialValues = (): FormData => {
     if (editMode && initialData) {
       console.log("🔄 Mode édition - données initiales:", initialData);
       
+      // Gestion sûre de l'objet targeting avec des valeurs par défaut
       const targeting = initialData.targeting || {};
+      
+      // Fonction helper pour convertir les valeurs en chaînes
+      const arrayOrStringToString = (value: any): string => {
+        if (Array.isArray(value)) {
+          return value.join(", ");
+        }
+        if (typeof value === "string") {
+          return value;
+        }
+        return "";
+      };
 
-      return {
+      const formValues: FormData = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
         dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString() : "",
-        jobTitles: Array.isArray(targeting.jobTitles) 
-          ? targeting.jobTitles.join(", ") 
-          : targeting.jobTitles || "",
-        industries: Array.isArray(targeting.industries) 
-          ? targeting.industries.join(", ") 
-          : targeting.industries || "",
-        locations: Array.isArray(targeting.locations) 
-          ? targeting.locations.join(", ") 
-          : targeting.locations || "",
-        companySize: Array.isArray(targeting.companySize) 
-          ? targeting.companySize.join(", ") 
-          : targeting.companySize || "",
-        otherCriteria: targeting.otherCriteria || ""
+        jobTitles: arrayOrStringToString((targeting as any)?.jobTitles),
+        industries: arrayOrStringToString((targeting as any)?.industries),
+        locations: arrayOrStringToString((targeting as any)?.locations),
+        companySize: arrayOrStringToString((targeting as any)?.companySize),
+        otherCriteria: (targeting as any)?.otherCriteria || ""
       };
+
+      console.log("✅ Valeurs converties pour le formulaire:", formValues);
+      return formValues;
     }
     
     console.log("📝 Mode création - valeurs par défaut");
@@ -65,21 +72,21 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
   // Observer les changements de valeurs pour debug
   const watchedValues = form.watch();
   useEffect(() => {
-    console.log("👀 Valeurs surveillées:", watchedValues);
+    console.log("👀 [DEBUG] Valeurs surveillées du formulaire:", watchedValues);
   }, [watchedValues]);
 
   // Réinitialiser le formulaire quand les données initiales changent
   useEffect(() => {
     if (editMode && initialData) {
       const newValues = getInitialValues();
-      console.log("🔄 Réinitialisation avec:", newValues);
+      console.log("🔄 Réinitialisation du formulaire avec:", newValues);
       form.reset(newValues);
     }
   }, [initialData, editMode]);
 
   const onSubmit = async (data: FormData) => {
     console.log("🚀 === SOUMISSION DU FORMULAIRE ===");
-    console.log("📥 Données reçues:", data);
+    console.log("📥 [DEBUG] Données reçues du formulaire:", data);
     
     if (!user) {
       toast.error("Vous devez être connecté pour créer une requête");
@@ -90,9 +97,15 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
 
     try {
       // Fonction helper pour convertir les chaînes en tableaux
-      const stringToArray = (str: string): string[] => {
-        if (!str || typeof str !== 'string') return [];
-        return str.split(",").map(item => item.trim()).filter(item => item.length > 0);
+      const stringToArray = (str: string | undefined): string[] => {
+        console.log("🔧 [DEBUG] Conversion string vers array:", str);
+        if (!str || typeof str !== 'string') {
+          console.log("⚠️ [DEBUG] Valeur vide ou non-string, retour tableau vide");
+          return [];
+        }
+        const result = str.split(",").map(item => item.trim()).filter(item => item.length > 0);
+        console.log("✅ [DEBUG] Résultat de la conversion:", result);
+        return result;
       };
 
       const requestData = {
@@ -109,7 +122,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         }
       };
 
-      console.log("📦 Données de requête préparées:", requestData);
+      console.log("📦 [DEBUG] Données de requête préparées:", requestData);
 
       let result;
 
