@@ -27,6 +27,8 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
 
   const getInitialValues = (): FormData => {
     if (editMode && initialData) {
+      console.log("Mode édition - données initiales:", initialData);
+      
       const targeting = initialData.targeting || {
         jobTitles: [],
         industries: [],
@@ -38,7 +40,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
       // Convert date to ISO string for proper handling
       const dueDate = initialData.dueDate ? new Date(initialData.dueDate).toISOString() : "";
 
-      return {
+      const formValues = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
         dueDate: dueDate,
@@ -48,14 +50,19 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join(", ") : targeting.companySize || "",
         otherCriteria: targeting.otherCriteria || ""
       };
+      
+      console.log("Valeurs du formulaire préparées:", formValues);
+      return formValues;
     }
+    
+    console.log("Mode création - utilisation des valeurs par défaut");
     return defaultValues;
   };
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: getInitialValues(),
-    mode: "onChange" // Permettre la validation en temps réel
+    mode: "onChange"
   });
 
   // Réinitialiser le formulaire quand les données initiales changent
@@ -76,6 +83,9 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
   }, [form]);
 
   const onSubmit = async (data: FormData) => {
+    console.log("=== SOUMISSION DU FORMULAIRE ===");
+    console.log("Données reçues:", data);
+    
     if (!user) {
       toast.error("Vous devez être connecté pour créer une requête");
       return;
@@ -84,8 +94,6 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
 
     try {
-      console.log("Soumission du formulaire LinkedIn avec les données:", data);
-      
       const requestData = {
         title: data.title,
         missionId: data.missionId,

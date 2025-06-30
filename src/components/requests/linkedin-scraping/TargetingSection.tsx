@@ -1,6 +1,7 @@
 
 import { Control } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -22,10 +23,13 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
               <FormItem>
                 <FormLabel>Intitulés de postes</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Ex: CEO, CTO, Marketing Director (un par ligne)" 
-                    className="min-h-[100px]"
+                  <Input 
+                    placeholder="Ex: CEO, CTO, Marketing Director (séparés par des virgules)" 
                     {...field} 
+                    onChange={(e) => {
+                      console.log("JobTitles changé:", e.target.value);
+                      field.onChange(e);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -40,10 +44,13 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
               <FormItem>
                 <FormLabel>Localisations</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Ex: France, Paris, Île-de-France (un par ligne)" 
-                    className="min-h-[100px]"
+                  <Input 
+                    placeholder="Ex: France, Paris, Île-de-France (séparés par des virgules)" 
                     {...field} 
+                    onChange={(e) => {
+                      console.log("Locations changé:", e.target.value);
+                      field.onChange(e);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -58,10 +65,13 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
               <FormItem>
                 <FormLabel>Industries</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Ex: IT, Finance, Healthcare (un par ligne)" 
-                    className="min-h-[100px]"
+                  <Input 
+                    placeholder="Ex: IT, Finance, Healthcare (séparés par des virgules)" 
                     {...field} 
+                    onChange={(e) => {
+                      console.log("Industries changé:", e.target.value);
+                      field.onChange(e);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -76,10 +86,13 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
               <FormItem>
                 <FormLabel>Taille d'entreprise</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Ex: 50-200, 201-500, 501-1000 (un par ligne)" 
-                    className="min-h-[100px]"
+                  <Input 
+                    placeholder="Ex: 50-200, 201-500, 501-1000 (séparés par des virgules)" 
                     {...field} 
+                    onChange={(e) => {
+                      console.log("CompanySize changé:", e.target.value);
+                      field.onChange(e);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -98,6 +111,10 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
                     placeholder="Décrivez tout autre critère de ciblage spécifique" 
                     className="min-h-[100px]"
                     {...field} 
+                    onChange={(e) => {
+                      console.log("OtherCriteria changé:", e.target.value);
+                      field.onChange(e);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
