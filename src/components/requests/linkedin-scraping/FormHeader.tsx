@@ -1,3 +1,4 @@
+
 import { Control } from "react-hook-form";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -18,6 +19,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { getMissionsByUserId } from "@/services/missionService";
+import { getAllSupaMissions } from "@/services/missions/getMissions";
 
 interface FormHeaderProps {
   control: Control<any>;
@@ -26,12 +28,22 @@ interface FormHeaderProps {
 }
 
 export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps) => {
-  // Récupérer les missions de l'utilisateur connecté
+  // Récupérer toutes les missions si admin, sinon seulement celles de l'utilisateur
+  const isAdmin = user?.role === 'admin';
+  
   const { data: userMissions = [] } = useQuery({
     queryKey: ['missions', user?.id],
     queryFn: () => user?.id ? getMissionsByUserId(user.id) : [],
-    enabled: !!user?.id,
+    enabled: !!user?.id && !isAdmin,
   });
+
+  const { data: allMissions = [] } = useQuery({
+    queryKey: ['missions', 'all'],
+    queryFn: () => getAllSupaMissions(),
+    enabled: isAdmin,
+  });
+
+  const missions = isAdmin ? allMissions : userMissions;
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -65,8 +77,8 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
                   <SelectValue placeholder="Sélectionnez une mission" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userMissions.length > 0 ? (
-                    userMissions.map((mission) => (
+                  {missions.length > 0 ? (
+                    missions.map((mission) => (
                       <SelectItem key={mission.id} value={mission.id}>
                         {mission.name}
                       </SelectItem>
@@ -89,37 +101,65 @@ export const FormHeader = ({ control, user, editMode = false }: FormHeaderProps)
         name="dueDate"
         render={({ field }) => (
           <FormItem className="flex flex-col">
-            <FormLabel>Date de livraison souhaitée</FormLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <FormControl>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full pl-3 text-left font-normal",
-                      !field.value && "text-muted-foreground"
-                    )}
-                  >
-                    {field.value ? (
-                      format(field.value, "d MMMM yyyy", { locale: fr })
-                    ) : (
-                      <span>Sélectionnez une date</span>
-                    )}
-                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                  </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={field.value}
-                  onSelect={field.onChange}
-                  disabled={(date) => date < new Date()}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
+            <FormLabel>Date et heure de livraison souhaitée</FormLabel>
+            <div className="space-y-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value ? (
+                        format(new Date(field.value), "d MMMM yyyy", { locale: fr })
+                      ) : (
+                        <span>Sélectionnez une date</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value ? new Date(field.value) : undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        // Conserver l'heure existante ou définir 09:00 par défaut
+                        const currentDateTime = field.value ? new Date(field.value) : new Date();
+                        if (!field.value) {
+                          currentDateTime.setHours(9, 0, 0, 0);
+                        }
+                        date.setHours(currentDateTime.getHours(), currentDateTime.getMinutes(), 0, 0);
+                        field.onChange(date.toISOString());
+                      }
+                    }}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Input
+                    type="time"
+                    value={field.value ? format(new Date(field.value), "HH:mm") : "09:00"}
+                    onChange={(e) => {
+                      const [hours, minutes] = e.target.value.split(':');
+                      const currentDate = field.value ? new Date(field.value) : new Date();
+                      currentDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                      field.onChange(currentDate.toISOString());
+                    }}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
             <FormMessage />
           </FormItem>
         )}

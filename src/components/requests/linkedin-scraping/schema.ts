@@ -1,38 +1,26 @@
 
-import { z } from "zod";
+import * as z from "zod";
 
 export const formSchema = z.object({
-  title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
-  missionId: z.string().min(1, "Veuillez sélectionner une mission"),
-  dueDate: z.union([z.string(), z.date()]).transform((val) => {
-    if (typeof val === 'string') return val;
-    return val.toISOString().split('T')[0];
-  }),
-  jobTitles: z.string().optional(),
+  title: z.string().min(1, "Le titre est requis"),
+  missionId: z.string().min(1, "La mission est requise"),
+  dueDate: z.string().min(1, "La date de livraison est requise"),
+  jobTitles: z.string().min(1, "Les intitulés de postes sont requis"),
+  industries: z.string().min(1, "Les industries sont requises"),
   locations: z.string().optional(),
-  industries: z.string().optional(),
   companySize: z.string().optional(),
-  otherCriteria: z.string().optional(),
-}).refine(data => {
-  // Au moins un des critères de ciblage doit être rempli
-  return !!data.jobTitles || !!data.locations || !!data.industries || !!data.companySize || !!data.otherCriteria;
-}, {
-  message: "Veuillez fournir au moins un critère de ciblage",
-  path: ["jobTitles"],
+  otherCriteria: z.string().optional()
 });
 
 export type FormData = z.infer<typeof formSchema>;
 
-// Permettre de sélectionner le jour même
-const today = new Date().toISOString().split('T')[0];
-
-export const defaultValues = {
+export const defaultValues: FormData = {
   title: "",
   missionId: "",
-  dueDate: today, // Utiliser la date du jour par défaut
+  dueDate: "",
   jobTitles: "",
-  locations: "",
   industries: "",
+  locations: "",
   companySize: "",
-  otherCriteria: "",
+  otherCriteria: ""
 };

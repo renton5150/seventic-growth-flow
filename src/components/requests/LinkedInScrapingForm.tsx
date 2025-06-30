@@ -35,8 +35,8 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         otherCriteria: ""
       };
 
-      // Convert string date to string format for input (YYYY-MM-DD)
-      const dueDate = initialData.dueDate ? initialData.dueDate.split('T')[0] : "";
+      // Convert date to ISO string for proper handling
+      const dueDate = initialData.dueDate ? new Date(initialData.dueDate).toISOString() : "";
 
       return {
         title: initialData.title || "",
@@ -79,7 +79,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         title: data.title,
         missionId: data.missionId,
         createdBy: user.id,
-        dueDate: data.dueDate, // Keep as string - sera converti dans le service
+        dueDate: data.dueDate, // Déjà au format ISO string
         targeting: {
           jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()) : [],
           industries: data.industries ? data.industries.split(",").map(item => item.trim()) : [],
@@ -97,7 +97,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         console.log("Mode édition - mise à jour de la requête:", initialData.id);
         result = await updateRequest(initialData.id, {
           title: data.title,
-          dueDate: data.dueDate, // Keep as string
+          dueDate: data.dueDate,
           targeting: requestData.targeting
         } as Partial<LinkedInScrapingRequest>);
 
