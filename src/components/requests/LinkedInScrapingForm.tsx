@@ -25,7 +25,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
-  // CORRECTION 1: Fonction helper pour convertir array -> string de façon sûre
+  // CORRECTION CRITIQUE: Fonction helper pour convertir array -> string de façon sûre
   const arrayToString = (value: any): string => {
     console.log("🔧 [arrayToString] Input:", value, "Type:", typeof value);
     
@@ -44,24 +44,25 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     return "";
   };
 
-  // CORRECTION 2: Fonction pour obtenir les valeurs initiales avec conversion correcte
+  // CORRECTION MAJEURE: Fonction pour obtenir les valeurs initiales avec accès correct aux données
   const getInitialValues = (): FormData => {
     if (editMode && initialData) {
       console.log("🔄 [getInitialValues] Mode édition - données initiales:", initialData);
       
-      const targeting = initialData.targeting || {};
-      console.log("🎯 [getInitialValues] Targeting data:", targeting);
+      // CORRECTION CRITIQUE: Accéder aux données de ciblage dans initialData.details.targeting
+      const targeting = initialData.details?.targeting || {};
+      console.log("🎯 [getInitialValues] Targeting data from details:", targeting);
 
       const formValues: FormData = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
         dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString() : "",
-        // CORRECTION CRITIQUE: Conversion correcte des arrays en strings
-        jobTitles: arrayToString((targeting as any)?.jobTitles),
-        industries: arrayToString((targeting as any)?.industries),
-        locations: arrayToString((targeting as any)?.locations),
-        companySize: arrayToString((targeting as any)?.companySize),
-        otherCriteria: (targeting as any)?.otherCriteria || ""
+        // CORRECTION CRITIQUE: Conversion correcte des arrays en strings depuis details.targeting
+        jobTitles: arrayToString(targeting.jobTitles),
+        industries: arrayToString(targeting.industries),
+        locations: arrayToString(targeting.locations),
+        companySize: arrayToString(targeting.companySize),
+        otherCriteria: targeting.otherCriteria || ""
       };
 
       console.log("✅ [getInitialValues] Valeurs converties pour le formulaire:", formValues);
@@ -105,7 +106,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
 
     try {
-      // CORRECTION CRITIQUE 3: Fonction de conversion string -> array repositionnée et corrigée
+      // CORRECTION CRITIQUE: Fonction de conversion string -> array repositionnée et corrigée
       const stringToArray = (str: string | undefined): string[] => {
         console.log("🔧 [stringToArray] Converting:", str, "Type:", typeof str);
         
@@ -122,7 +123,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         return result;
       };
 
-      // CORRECTION 4: Structure des données exactement comme dans EmailCampaignForm
+      // CORRECTION: Structure des données exactement comme dans EmailCampaignForm
       const requestData = {
         title: data.title,
         missionId: data.missionId,
