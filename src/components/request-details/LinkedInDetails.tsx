@@ -10,7 +10,12 @@ interface LinkedInDetailsProps {
 }
 
 export const LinkedInDetails = ({ request }: LinkedInDetailsProps) => {
-  const { targeting, profilesScraped, resultFileUrl } = request;
+  // CORRECTION: Accéder aux données de ciblage via details.targeting
+  const targeting = request.details?.targeting;
+  const { profilesScraped, resultFileUrl } = request;
+
+  console.log("🔍 [LinkedInDetails] Request data:", request);
+  console.log("🎯 [LinkedInDetails] Targeting data:", targeting);
 
   // Fonction pour télécharger un fichier à partir d'une URL
   const handleFileDownload = (url: string | undefined, filename: string = "document") => {
@@ -70,7 +75,7 @@ export const LinkedInDetails = ({ request }: LinkedInDetailsProps) => {
           <CardTitle>Ciblage</CardTitle>
         </CardHeader>
         <CardContent>
-          {targeting && (
+          {targeting ? (
             <>
               {targeting.jobTitles && targeting.jobTitles.length > 0 && (
                 <div className="mb-4">
@@ -123,6 +128,8 @@ export const LinkedInDetails = ({ request }: LinkedInDetailsProps) => {
                 </div>
               )}
             </>
+          ) : (
+            <p className="text-gray-500 italic">Aucune donnée de ciblage disponible</p>
           )}
         </CardContent>
       </Card>
