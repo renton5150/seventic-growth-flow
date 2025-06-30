@@ -25,41 +25,50 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
-  // Fonction pour convertir les données initiales avec une gestion sûre des types
+  // CORRECTION 1: Fonction helper pour convertir array -> string de façon sûre
+  const arrayToString = (value: any): string => {
+    console.log("🔧 [arrayToString] Input:", value, "Type:", typeof value);
+    
+    if (Array.isArray(value)) {
+      const result = value.join(", ");
+      console.log("✅ [arrayToString] Array converted:", result);
+      return result;
+    }
+    
+    if (typeof value === "string") {
+      console.log("✅ [arrayToString] Already string:", value);
+      return value;
+    }
+    
+    console.log("⚠️ [arrayToString] Fallback to empty string for:", value);
+    return "";
+  };
+
+  // CORRECTION 2: Fonction pour obtenir les valeurs initiales avec conversion correcte
   const getInitialValues = (): FormData => {
     if (editMode && initialData) {
-      console.log("🔄 Mode édition - données initiales:", initialData);
+      console.log("🔄 [getInitialValues] Mode édition - données initiales:", initialData);
       
-      // Gestion sûre de l'objet targeting avec des valeurs par défaut
       const targeting = initialData.targeting || {};
-      
-      // Fonction helper pour convertir les valeurs en chaînes
-      const arrayOrStringToString = (value: any): string => {
-        if (Array.isArray(value)) {
-          return value.join(", ");
-        }
-        if (typeof value === "string") {
-          return value;
-        }
-        return "";
-      };
+      console.log("🎯 [getInitialValues] Targeting data:", targeting);
 
       const formValues: FormData = {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
         dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString() : "",
-        jobTitles: arrayOrStringToString((targeting as any)?.jobTitles),
-        industries: arrayOrStringToString((targeting as any)?.industries),
-        locations: arrayOrStringToString((targeting as any)?.locations),
-        companySize: arrayOrStringToString((targeting as any)?.companySize),
+        // CORRECTION CRITIQUE: Conversion correcte des arrays en strings
+        jobTitles: arrayToString((targeting as any)?.jobTitles),
+        industries: arrayToString((targeting as any)?.industries),
+        locations: arrayToString((targeting as any)?.locations),
+        companySize: arrayToString((targeting as any)?.companySize),
         otherCriteria: (targeting as any)?.otherCriteria || ""
       };
 
-      console.log("✅ Valeurs converties pour le formulaire:", formValues);
+      console.log("✅ [getInitialValues] Valeurs converties pour le formulaire:", formValues);
       return formValues;
     }
     
-    console.log("📝 Mode création - valeurs par défaut");
+    console.log("📝 [getInitialValues] Mode création - valeurs par défaut");
     return defaultValues;
   };
 
@@ -86,7 +95,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
 
   const onSubmit = async (data: FormData) => {
     console.log("🚀 === SOUMISSION DU FORMULAIRE ===");
-    console.log("📥 [DEBUG] Données reçues du formulaire:", data);
+    console.log("📥 [DEBUG] FORM VALUES BEFORE SUBMISSION:", JSON.stringify(data, null, 2));
     
     if (!user) {
       toast.error("Vous devez être connecté pour créer une requête");
@@ -96,19 +105,24 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
 
     try {
-      // Fonction helper pour convertir les chaînes en tableaux - CORRECTION ICI
+      // CORRECTION CRITIQUE 3: Fonction de conversion string -> array repositionnée et corrigée
       const stringToArray = (str: string | undefined): string[] => {
-        console.log("🔧 [DEBUG] Conversion string vers array:", str);
+        console.log("🔧 [stringToArray] Converting:", str, "Type:", typeof str);
+        
         if (!str || typeof str !== 'string' || str.trim() === '') {
-          console.log("⚠️ [DEBUG] Valeur vide ou non-string, retour tableau vide");
+          console.log("⚠️ [stringToArray] Empty or invalid input, returning empty array");
           return [];
         }
-        const result = str.split(",").map(item => item.trim()).filter(item => item.length > 0);
-        console.log("✅ [DEBUG] Résultat de la conversion:", result);
+        
+        const result = str.split(",")
+          .map(item => item.trim())
+          .filter(item => item.length > 0);
+        
+        console.log("✅ [stringToArray] Conversion result:", result);
         return result;
       };
 
-      // CORRECTION: Structure correcte des données pour la base de données
+      // CORRECTION 4: Structure des données exactement comme dans EmailCampaignForm
       const requestData = {
         title: data.title,
         missionId: data.missionId,
@@ -123,14 +137,13 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         }
       };
 
-      console.log("📦 [DEBUG] Données de requête préparées pour la base:", requestData);
+      console.log("📦 [DEBUG] PROCESSED DATA FOR API:", JSON.stringify(requestData, null, 2));
 
       let result;
 
       if (editMode && initialData) {
         console.log("✏️ Mode édition - mise à jour de la requête:", initialData.id);
         
-        // CORRECTION: Données exactes pour la mise à jour
         const updateData = {
           title: data.title,
           dueDate: data.dueDate,
@@ -143,7 +156,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
           }
         };
 
-        console.log("📝 [DEBUG] Données de mise à jour:", updateData);
+        console.log("📝 [DEBUG] Update data being sent:", JSON.stringify(updateData, null, 2));
         
         result = await updateRequest(initialData.id, updateData as Partial<LinkedInScrapingRequest>);
 

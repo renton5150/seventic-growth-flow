@@ -25,8 +25,10 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
                 <FormControl>
                   <Input 
                     placeholder="Ex: CEO, CTO, Marketing Director (séparés par des virgules)" 
-                    {...field} 
                     value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
                   />
                 </FormControl>
                 <FormMessage />
@@ -43,8 +45,10 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
                 <FormControl>
                   <Input 
                     placeholder="Ex: France, Paris, Île-de-France (séparés par des virgules)" 
-                    {...field}
                     value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
                   />
                 </FormControl>
                 <FormMessage />
@@ -61,8 +65,10 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
                 <FormControl>
                   <Input 
                     placeholder="Ex: IT, Finance, Healthcare (séparés par des virgules)" 
-                    {...field}
                     value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
                   />
                 </FormControl>
                 <FormMessage />
@@ -79,8 +85,10 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
                 <FormControl>
                   <Input 
                     placeholder="Ex: 50-200, 201-500, 501-1000 (séparés par des virgules)" 
-                    {...field}
                     value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
                   />
                 </FormControl>
                 <FormMessage />
@@ -98,8 +106,10 @@ export const TargetingSection = ({ control }: TargetingSectionProps) => {
                   <Textarea 
                     placeholder="Décrivez tout autre critère de ciblage spécifique" 
                     className="min-h-[100px]"
-                    {...field}
                     value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
                   />
                 </FormControl>
                 <FormMessage />
