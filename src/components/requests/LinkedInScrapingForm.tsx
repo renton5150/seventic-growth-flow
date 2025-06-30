@@ -25,7 +25,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
-  const getInitialValues = () => {
+  const getInitialValues = (): FormData => {
     if (editMode && initialData) {
       const targeting = initialData.targeting || {
         jobTitles: [],
@@ -42,10 +42,10 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         title: initialData.title || "",
         missionId: initialData.missionId || "",
         dueDate: dueDate,
-        jobTitles: targeting.jobTitles.join(", ") || "",
-        industries: targeting.industries.join(", ") || "",
-        locations: targeting.locations?.join(", ") || "",
-        companySize: targeting.companySize.join(", ") || "",
+        jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join(", ") : targeting.jobTitles || "",
+        industries: Array.isArray(targeting.industries) ? targeting.industries.join(", ") : targeting.industries || "",
+        locations: Array.isArray(targeting.locations) ? targeting.locations.join(", ") : targeting.locations || "",
+        companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join(", ") : targeting.companySize || "",
         otherCriteria: targeting.otherCriteria || ""
       };
     }
@@ -54,15 +54,26 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: getInitialValues()
+    defaultValues: getInitialValues(),
+    mode: "onChange" // Permettre la validation en temps réel
   });
 
+  // Réinitialiser le formulaire quand les données initiales changent
   useEffect(() => {
-    // Mettre à jour les valeurs du formulaire lorsque initialData change
     if (editMode && initialData) {
-      form.reset(getInitialValues());
+      const newValues = getInitialValues();
+      console.log("Réinitialisation du formulaire avec les nouvelles valeurs:", newValues);
+      form.reset(newValues);
     }
   }, [initialData, editMode, form]);
+
+  // Debug: observer les changements de valeurs du formulaire
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      console.log("Valeurs du formulaire changées:", values);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const onSubmit = async (data: FormData) => {
     if (!user) {
@@ -79,12 +90,12 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         title: data.title,
         missionId: data.missionId,
         createdBy: user.id,
-        dueDate: data.dueDate, // Déjà au format ISO string
+        dueDate: data.dueDate,
         targeting: {
-          jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()) : [],
-          industries: data.industries ? data.industries.split(",").map(item => item.trim()) : [],
-          locations: data.locations ? data.locations.split(",").map(item => item.trim()) : [],
-          companySize: data.companySize ? data.companySize.split(",").map(item => item.trim()) : [],
+          jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()).filter(item => item) : [],
+          industries: data.industries ? data.industries.split(",").map(item => item.trim()).filter(item => item) : [],
+          locations: data.locations ? data.locations.split(",").map(item => item.trim()).filter(item => item) : [],
+          companySize: data.companySize ? data.companySize.split(",").map(item => item.trim()).filter(item => item) : [],
           otherCriteria: data.otherCriteria || ""
         }
       };
@@ -135,7 +146,6 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         : "Erreur inconnue lors de la création/modification de la demande";
       toast.error(`Erreur: ${errorMessage}`);
       
-      // Log supplémentaire pour le débogage
       if (error instanceof Error) {
         console.error("Stack trace:", error.stack);
       }
