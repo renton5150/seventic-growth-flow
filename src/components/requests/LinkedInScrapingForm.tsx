@@ -25,37 +25,34 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
+  // Fonction pour convertir les données initiales
   const getInitialValues = (): FormData => {
     if (editMode && initialData) {
-      console.log("Mode édition - données initiales:", initialData);
+      console.log("🔄 Mode édition - données initiales:", initialData);
       
-      const targeting = initialData.targeting || {
-        jobTitles: [],
-        industries: [],
-        locations: [],
-        companySize: [],
-        otherCriteria: ""
-      };
+      const targeting = initialData.targeting || {};
 
-      // Convert date to ISO string for proper handling
-      const dueDate = initialData.dueDate ? new Date(initialData.dueDate).toISOString() : "";
-
-      const formValues = {
+      return {
         title: initialData.title || "",
         missionId: initialData.missionId || "",
-        dueDate: dueDate,
-        jobTitles: Array.isArray(targeting.jobTitles) ? targeting.jobTitles.join(", ") : targeting.jobTitles || "",
-        industries: Array.isArray(targeting.industries) ? targeting.industries.join(", ") : targeting.industries || "",
-        locations: Array.isArray(targeting.locations) ? targeting.locations.join(", ") : targeting.locations || "",
-        companySize: Array.isArray(targeting.companySize) ? targeting.companySize.join(", ") : targeting.companySize || "",
+        dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString() : "",
+        jobTitles: Array.isArray(targeting.jobTitles) 
+          ? targeting.jobTitles.join(", ") 
+          : targeting.jobTitles || "",
+        industries: Array.isArray(targeting.industries) 
+          ? targeting.industries.join(", ") 
+          : targeting.industries || "",
+        locations: Array.isArray(targeting.locations) 
+          ? targeting.locations.join(", ") 
+          : targeting.locations || "",
+        companySize: Array.isArray(targeting.companySize) 
+          ? targeting.companySize.join(", ") 
+          : targeting.companySize || "",
         otherCriteria: targeting.otherCriteria || ""
       };
-      
-      console.log("Valeurs du formulaire préparées:", formValues);
-      return formValues;
     }
     
-    console.log("Mode création - utilisation des valeurs par défaut");
+    console.log("📝 Mode création - valeurs par défaut");
     return defaultValues;
   };
 
@@ -65,26 +62,24 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     mode: "onChange"
   });
 
+  // Observer les changements de valeurs pour debug
+  const watchedValues = form.watch();
+  useEffect(() => {
+    console.log("👀 Valeurs surveillées:", watchedValues);
+  }, [watchedValues]);
+
   // Réinitialiser le formulaire quand les données initiales changent
   useEffect(() => {
     if (editMode && initialData) {
       const newValues = getInitialValues();
-      console.log("Réinitialisation du formulaire avec les nouvelles valeurs:", newValues);
+      console.log("🔄 Réinitialisation avec:", newValues);
       form.reset(newValues);
     }
-  }, [initialData, editMode, form]);
-
-  // Debug: observer les changements de valeurs du formulaire
-  useEffect(() => {
-    const subscription = form.watch((values) => {
-      console.log("Valeurs du formulaire changées:", values);
-    });
-    return () => subscription.unsubscribe();
-  }, [form]);
+  }, [initialData, editMode]);
 
   const onSubmit = async (data: FormData) => {
-    console.log("=== SOUMISSION DU FORMULAIRE ===");
-    console.log("Données reçues:", data);
+    console.log("🚀 === SOUMISSION DU FORMULAIRE ===");
+    console.log("📥 Données reçues:", data);
     
     if (!user) {
       toast.error("Vous devez être connecté pour créer une requête");
@@ -94,26 +89,32 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
 
     try {
+      // Fonction helper pour convertir les chaînes en tableaux
+      const stringToArray = (str: string): string[] => {
+        if (!str || typeof str !== 'string') return [];
+        return str.split(",").map(item => item.trim()).filter(item => item.length > 0);
+      };
+
       const requestData = {
         title: data.title,
         missionId: data.missionId,
         createdBy: user.id,
         dueDate: data.dueDate,
         targeting: {
-          jobTitles: data.jobTitles ? data.jobTitles.split(",").map(item => item.trim()).filter(item => item) : [],
-          industries: data.industries ? data.industries.split(",").map(item => item.trim()).filter(item => item) : [],
-          locations: data.locations ? data.locations.split(",").map(item => item.trim()).filter(item => item) : [],
-          companySize: data.companySize ? data.companySize.split(",").map(item => item.trim()).filter(item => item) : [],
+          jobTitles: stringToArray(data.jobTitles),
+          industries: stringToArray(data.industries),
+          locations: stringToArray(data.locations),
+          companySize: stringToArray(data.companySize),
           otherCriteria: data.otherCriteria || ""
         }
       };
 
-      console.log("Données de requête préparées:", requestData);
+      console.log("📦 Données de requête préparées:", requestData);
 
       let result;
 
       if (editMode && initialData) {
-        console.log("Mode édition - mise à jour de la requête:", initialData.id);
+        console.log("✏️ Mode édition - mise à jour de la requête:", initialData.id);
         result = await updateRequest(initialData.id, {
           title: data.title,
           dueDate: data.dueDate,
@@ -121,7 +122,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         } as Partial<LinkedInScrapingRequest>);
 
         if (result) {
-          console.log("Requête mise à jour avec succès");
+          console.log("✅ Requête mise à jour avec succès");
           toast.success("Demande de scraping LinkedIn mise à jour avec succès");
           if (onSuccess) {
             onSuccess();
@@ -132,11 +133,11 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
           throw new Error("Erreur lors de la mise à jour de la demande");
         }
       } else {
-        console.log("Mode création - nouvelle requête");
+        console.log("➕ Mode création - nouvelle requête");
         const newRequest = await createLinkedInScrapingRequest(requestData);
 
         if (newRequest) {
-          console.log("Nouvelle requête créée avec succès:", newRequest);
+          console.log("✅ Nouvelle requête créée avec succès:", newRequest);
           toast.success("Demande de scraping LinkedIn créée avec succès");
           if (onSuccess) {
             onSuccess();
@@ -148,15 +149,11 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         }
       }
     } catch (error) {
-      console.error("Erreur lors de la soumission:", error);
+      console.error("❌ Erreur lors de la soumission:", error);
       const errorMessage = error instanceof Error
         ? error.message
         : "Erreur inconnue lors de la création/modification de la demande";
       toast.error(`Erreur: ${errorMessage}`);
-      
-      if (error instanceof Error) {
-        console.error("Stack trace:", error.stack);
-      }
     } finally {
       setSubmitting(false);
     }
