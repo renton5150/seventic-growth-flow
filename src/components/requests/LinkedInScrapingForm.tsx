@@ -96,10 +96,10 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
     setSubmitting(true);
 
     try {
-      // Fonction helper pour convertir les chaînes en tableaux
+      // Fonction helper pour convertir les chaînes en tableaux - CORRECTION ICI
       const stringToArray = (str: string | undefined): string[] => {
         console.log("🔧 [DEBUG] Conversion string vers array:", str);
-        if (!str || typeof str !== 'string') {
+        if (!str || typeof str !== 'string' || str.trim() === '') {
           console.log("⚠️ [DEBUG] Valeur vide ou non-string, retour tableau vide");
           return [];
         }
@@ -108,6 +108,7 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         return result;
       };
 
+      // CORRECTION: Structure correcte des données pour la base de données
       const requestData = {
         title: data.title,
         missionId: data.missionId,
@@ -115,24 +116,36 @@ export const LinkedInScrapingForm = ({ editMode = false, initialData, onSuccess 
         dueDate: data.dueDate,
         targeting: {
           jobTitles: stringToArray(data.jobTitles),
-          industries: stringToArray(data.industries),
+          industries: stringToArray(data.industries), 
           locations: stringToArray(data.locations),
           companySize: stringToArray(data.companySize),
           otherCriteria: data.otherCriteria || ""
         }
       };
 
-      console.log("📦 [DEBUG] Données de requête préparées:", requestData);
+      console.log("📦 [DEBUG] Données de requête préparées pour la base:", requestData);
 
       let result;
 
       if (editMode && initialData) {
         console.log("✏️ Mode édition - mise à jour de la requête:", initialData.id);
-        result = await updateRequest(initialData.id, {
+        
+        // CORRECTION: Données exactes pour la mise à jour
+        const updateData = {
           title: data.title,
           dueDate: data.dueDate,
-          targeting: requestData.targeting
-        } as Partial<LinkedInScrapingRequest>);
+          targeting: {
+            jobTitles: stringToArray(data.jobTitles),
+            industries: stringToArray(data.industries),
+            locations: stringToArray(data.locations),
+            companySize: stringToArray(data.companySize),
+            otherCriteria: data.otherCriteria || ""
+          }
+        };
+
+        console.log("📝 [DEBUG] Données de mise à jour:", updateData);
+        
+        result = await updateRequest(initialData.id, updateData as Partial<LinkedInScrapingRequest>);
 
         if (result) {
           console.log("✅ Requête mise à jour avec succès");
