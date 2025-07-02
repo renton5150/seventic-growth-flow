@@ -143,7 +143,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     if (updates.workflow_status) dbUpdates.workflow_status = updates.workflow_status;
     if ('assigned_to' in updates) dbUpdates.assigned_to = updates.assigned_to;
 
-    // Récupérer d'abord la requête actuelle pour fusionner correctement les détails
+    // Récupérer d'abord la requête actuelle pour gérer correctement les suppressions de fichiers
     const { data: currentRequest } = await supabase
       .from('requests')
       .select('details')
@@ -190,37 +190,45 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       };
     }
     
-    // Mettre à jour database si présent dans les updates
+    // Mettre à jour database si présent dans les updates - REMPLACER COMPLÈTEMENT les fileUrls
     if (updates.database) {
       const database = updates.database;
+      console.log("Mise à jour de la database:", database);
       
+      // Remplacer complètement au lieu de fusionner
       dbUpdates.details.database = {
-        ...dbUpdates.details.database,
-        ...database
+        notes: database.notes || "",
+        fileUrl: database.fileUrl || "",
+        fileUrls: database.fileUrls || [], // Remplace complètement l'array
+        webLinks: database.webLinks || []
       };
+      
+      console.log("Database mise à jour:", dbUpdates.details.database);
     }
     
-    // Mettre à jour blacklist si présent dans les updates
+    // Mettre à jour blacklist si présent dans les updates - REMPLACER COMPLÈTEMENT les fileUrls
     if (updates.blacklist) {
       const blacklist = updates.blacklist;
+      console.log("Mise à jour de la blacklist:", blacklist);
       
-      dbUpdates.details.blacklist = {
-        ...dbUpdates.details.blacklist,
-        ...(blacklist || {})
-      };
-
+      // Pour les comptes blacklist - remplacer complètement
       if (blacklist?.accounts) {
         dbUpdates.details.blacklist.accounts = {
-          ...dbUpdates.details.blacklist.accounts,
-          ...blacklist.accounts
+          notes: blacklist.accounts.notes || "",
+          fileUrl: blacklist.accounts.fileUrl || "",
+          fileUrls: blacklist.accounts.fileUrls || [] // Remplace complètement l'array
         };
+        console.log("Blacklist accounts mise à jour:", dbUpdates.details.blacklist.accounts);
       }
       
+      // Pour les emails blacklist - remplacer complètement
       if (blacklist?.emails) {
         dbUpdates.details.blacklist.emails = {
-          ...dbUpdates.details.blacklist.emails,
-          ...blacklist.emails
+          notes: blacklist.emails.notes || "",
+          fileUrl: blacklist.emails.fileUrl || "",
+          fileUrls: blacklist.emails.fileUrls || [] // Remplace complètement l'array
         };
+        console.log("Blacklist emails mise à jour:", dbUpdates.details.blacklist.emails);
       }
     }
     
