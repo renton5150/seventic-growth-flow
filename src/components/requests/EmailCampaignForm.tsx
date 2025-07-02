@@ -12,7 +12,8 @@ import { DatabaseSection } from "./email-campaign/DatabaseSection";
 import { BlacklistSection } from "./email-campaign/BlacklistSection";
 import { FormFooter } from "./email-campaign/FormFooter";
 import { formSchema, FormData, defaultValues } from "./email-campaign/schema";
-import { createEmailCampaignRequest, updateRequest } from "@/services/requestService";
+import { createEmailCampaignRequest } from "@/services/requestService";
+import { updateEmailRequest } from "@/services/requests/emailRequestService";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadDatabaseFile, uploadTemplateFile, uploadBlacklistFile } from "@/services/database/uploadService";
 import { EmailCampaignRequest } from "@/types/types";
@@ -305,7 +306,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       
       if (editMode && initialData) {
         console.log("Mise à jour de la demande avec:", requestData);
-        result = await updateRequest(initialData.id, {
+        result = await updateEmailRequest(initialData.id, {
           title: data.title,
           dueDate: data.dueDate, // Keep as string
           emailType: data.emailType,
