@@ -53,7 +53,23 @@ serve(async (req) => {
         growth:profiles!missions_growth_id_fkey(name, email)
       `);
 
-    // 4. **NOUVELLE SECTION CRUCIALE** - Récupérer TOUS les détails CRA avec jointures complètes
+    // 4. **RÉCUPÉRATION COMPLÈTE DES DONNÉES TÉLÉTRAVAIL**
+    console.log("[AI Chat] Récupération des données de télétravail...");
+    
+    // Récupérer TOUTES les demandes de télétravail avec détails utilisateur
+    const { data: teleworkRequests } = await supabase
+      .from('work_schedule_requests')
+      .select(`
+        id, user_id, start_date, end_date, request_type, status, reason,
+        is_exceptional, created_at, approved_at, approved_by,
+        profiles!work_schedule_requests_user_id_fkey(name, email, role)
+      `)
+      .eq('request_type', 'telework')
+      .eq('status', 'approved')
+      .order('start_date', { ascending: false })
+      .limit(200);
+
+    // 5. **NOUVELLE SECTION CRUCIALE** - Récupérer TOUS les détails CRA avec jointures complètes
     console.log("[AI Chat] Récupération détaillée des données CRA...");
     
     // Récupérer tous les rapports CRA avec détails SDR
@@ -103,10 +119,77 @@ serve(async (req) => {
       .select('*')
       .limit(20);
 
-    console.log("[AI Chat] Données CRA récupérées:", {
+    console.log("[AI Chat] Données récupérées:", {
+      teleworkRequests: teleworkRequests?.length || 0,
       craReports: craReports?.length || 0,
       missionTimes: missionTimes?.length || 0,
       opportunities: opportunities?.length || 0
+    });
+
+    // 6. **ANALYSE COMPLÈTE DES DONNÉES TÉLÉTRAVAIL**
+    const teleworkAnalysis = {};
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    teleworkRequests?.forEach(request => {
+      const userName = request.profiles?.name || 'Utilisateur Inconnu';
+      const startDate = new Date(request.start_date);
+      const endDate = new Date(request.end_date);
+      
+      if (!teleworkAnalysis[userName]) {
+        teleworkAnalysis[userName] = {
+          totalDays: 0,
+          thisMonth: 0,
+          upcomingDays: [],
+          recentDays: [],
+          allRequests: []
+        };
+      }
+      
+      // Calculer le nombre de jours de télétravail
+      const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+      teleworkAnalysis[userName].totalDays += daysDiff;
+      
+      // Vérifier si c'est ce mois-ci
+      if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
+        teleworkAnalysis[userName].thisMonth += daysDiff;
+      }
+      
+      // Séparer les jours futurs et passés
+      if (startDate >= today) {
+        teleworkAnalysis[userName].upcomingDays.push({
+          startDate: request.start_date,
+          endDate: request.end_date,
+          reason: request.reason,
+          isExceptional: request.is_exceptional
+        });
+      } else {
+        teleworkAnalysis[userName].recentDays.push({
+          startDate: request.start_date,
+          endDate: request.end_date,
+          reason: request.reason,
+          isExceptional: request.is_exceptional
+        });
+      }
+      
+      teleworkAnalysis[userName].allRequests.push({
+        startDate: request.start_date,
+        endDate: request.end_date,
+        reason: request.reason,
+        isExceptional: request.is_exceptional,
+        createdAt: request.created_at
+      });
+    });
+    
+    // Trier les jours à venir et passés
+    Object.keys(teleworkAnalysis).forEach(userName => {
+      teleworkAnalysis[userName].upcomingDays = teleworkAnalysis[userName].upcomingDays
+        .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+        .slice(0, 10);
+      teleworkAnalysis[userName].recentDays = teleworkAnalysis[userName].recentDays
+        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+        .slice(0, 10);
     });
 
     // 6. **ANALYSE DÉTAILLÉE DES DONNÉES CRA PAR MISSION ET SDR**
@@ -353,10 +436,40 @@ serve(async (req) => {
       }, {} as Record<string, number>) || {}
     };
 
-    // **CONSTRUIRE LE CONTEXTE ULTRA ENRICHI AVEC FOCUS CRA**
+    // **CONSTRUIRE LE CONTEXTE ULTRA ENRICHI AVEC TOUTES LES DONNÉES**
     let dataContext = `
 === DONNÉES COMPLÈTES DE L'APPLICATION SEVENTIC ===
-Application de gestion des demandes Growth et des missions client avec système CRA complet.
+Application de gestion des demandes Growth et des missions client avec système CRA complet et télétravail.
+
+=== 🏠 DONNÉES TÉLÉTRAVAIL COMPLÈTES ET DÉTAILLÉES ===
+${Object.entries(teleworkAnalysis).map(([userName, analysis]) => `
+🧑‍💻 ${userName}:
+   📊 STATISTIQUES TÉLÉTRAVAIL:
+   • Total jours télétravail: ${analysis.totalDays}
+   • Ce mois-ci: ${analysis.thisMonth} jours
+   
+   📅 PROCHAINS TÉLÉTRAVAILS (${analysis.upcomingDays.length} planifiés):
+   ${analysis.upcomingDays.map(day => `   • ${day.startDate}${day.endDate !== day.startDate ? ` → ${day.endDate}` : ''} - ${day.reason}${day.isExceptional ? ' (EXCEPTIONNEL)' : ''}`).join('\n')}
+   
+   📝 TÉLÉTRAVAILS RÉCENTS (${analysis.recentDays.length} derniers):
+   ${analysis.recentDays.slice(0, 5).map(day => `   • ${day.startDate}${day.endDate !== day.startDate ? ` → ${day.endDate}` : ''} - ${day.reason}${day.isExceptional ? ' (EXCEPTIONNEL)' : ''}`).join('\n')}
+`).join('')}
+
+📊 PLANNING TÉLÉTRAVAIL GLOBAL:
+${teleworkRequests ? teleworkRequests.slice(0, 20).map(req => {
+  const userName = req.profiles?.name || 'Utilisateur Inconnu';
+  const startDate = req.start_date;
+  const endDate = req.end_date;
+  const isUpcoming = new Date(startDate) >= new Date();
+  return `• ${startDate}${endDate !== startDate ? ` → ${endDate}` : ''}: ${userName} - ${req.reason}${req.is_exceptional ? ' (EXCEPTIONNEL)' : ''} ${isUpcoming ? '🔮 FUTUR' : '📝 PASSÉ'}`;
+}).join('\n') : 'Aucune donnée de télétravail'}
+
+🔍 QUESTIONS TÉLÉTRAVAIL QUE TU PEUX TRAITER:
+- "Qui sera en télétravail le [DATE] ?" 
+- "Combien de jours de télétravail [PERSONNE] a-t-il ce mois ?"
+- "Qui télétravaille le plus souvent ?"
+- "Y a-t-il beaucoup de monde en télétravail cette semaine ?"
+- "Quel est le planning télétravail de [PERSONNE] ?"
 
 === UTILISATEURS ET LEURS STATISTIQUES DÉTAILLÉES ===
 ${userStats?.map(stat => `
@@ -523,12 +636,23 @@ Tu as accès aux données COMPLÈTES et DÉTAILLÉES de l'application, y compris
 - Tu peux calculer des statistiques précises sur l'activité des SDR
 - Tu as accès aux commentaires et détails des sessions de travail
 
-📊 TYPES DE DONNÉES DISPONIBLES:
+🏠 EXPERTISE TÉLÉTRAVAIL COMPLÈTE:
+- Tu as accès à TOUS les jours de télétravail de chaque utilisateur (passés, présents, futurs)
+- Tu peux répondre précisément à "Qui sera en télétravail le [DATE] ?"
+- Tu connais les statistiques de télétravail par personne (fréquence, jours ce mois, etc.)
+- Tu as accès aux raisons et détails de chaque demande de télétravail
+- Tu peux analyser les patterns de télétravail (exceptionnel vs régulier)
+
+📊 TYPES DE DONNÉES DISPONIBLES (ACCÈS COMPLET SANS RESTRICTION):
 - Temps de travail détaillé par SDR et par mission (avec historique)
 - Opportunités identifiées avec leurs valeurs et contributeurs
 - Statistiques complètes des missions et des demandes
 - Historique des activités CRA avec commentaires
 - Relations entre SDR, missions, clients et temps passé
+- TOUTES les données de télétravail (planning complet par utilisateur)
+- Données de profils utilisateurs complètes
+- Statistiques globales de l'application
+- Campagnes email et leurs performances
 
 🔍 RÈGLES D'ANALYSE:
 - TOUJOURS utiliser les données CRA détaillées pour répondre aux questions sur le temps de travail
