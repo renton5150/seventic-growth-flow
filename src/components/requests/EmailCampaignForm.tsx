@@ -261,11 +261,8 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     try {
       console.log("🚀 Form data being submitted:", JSON.stringify(data, null, 2));
       
-      // Gérer la migration de fileUrl vers fileUrls
+      // Utiliser uniquement databaseFileUrls (pas de migration automatique)
       let databaseFileUrls = data.databaseFileUrls || [];
-      if (data.databaseFileUrl && !databaseFileUrls.includes(data.databaseFileUrl)) {
-        databaseFileUrls = [data.databaseFileUrl, ...databaseFileUrls];
-      }
       
       const requestData = {
         title: data.title,
