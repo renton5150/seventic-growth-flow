@@ -91,7 +91,10 @@ export const DatabaseSection = ({
   };
 
   const handleRemoveFile = (index: number, currentFiles: string[], onChange: (files: string[]) => void) => {
+    console.log("🗑️ Removing file at index:", index);
+    console.log("📁 Files before removal:", currentFiles);
     const newFiles = currentFiles.filter((_, i) => i !== index);
+    console.log("📁 Files after removal:", newFiles);
     onChange(newFiles);
   };
 

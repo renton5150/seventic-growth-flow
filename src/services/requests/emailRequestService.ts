@@ -128,7 +128,7 @@ export const createEmailCampaignRequest = async (requestData: any): Promise<Emai
 
 export const updateEmailRequest = async (requestId: string, updates: Partial<EmailCampaignRequest>): Promise<EmailCampaignRequest | undefined> => {
   try {
-    console.log("Mise à jour de la requête email:", requestId, "avec les données:", updates);
+    console.log("🔄 Received data for update:", updates);
     
     // Préparation des données pour la mise à jour dans Supabase
     const dbUpdates: any = {};
@@ -154,6 +154,8 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
       console.error("La requête à mettre à jour n'existe pas");
       return undefined;
     }
+
+    console.log("📋 Current data in database:", currentRequest.details);
 
     // Initialiser l'objet details à partir des données actuelles
     let currentDetails = {};
@@ -235,7 +237,7 @@ export const updateEmailRequest = async (requestId: string, updates: Partial<Ema
     // Toujours mettre à jour le timestamp last_updated
     dbUpdates.last_updated = new Date().toISOString();
 
-    console.log("Données formatées pour Supabase:", JSON.stringify(dbUpdates, null, 2));
+    console.log("💾 Prepared data for update:", JSON.stringify(dbUpdates, null, 2));
 
     const { data: updatedRequest, error: updateError } = await supabase
       .from('requests')

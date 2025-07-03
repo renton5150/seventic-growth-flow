@@ -259,7 +259,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
     setSubmitting(true);
     
     try {
-      console.log("Données soumises:", data);
+      console.log("🚀 Form data being submitted:", JSON.stringify(data, null, 2));
       
       // Gérer la migration de fileUrl vers fileUrls
       let databaseFileUrls = data.databaseFileUrls || [];
@@ -305,7 +305,7 @@ export const EmailCampaignForm = ({ editMode = false, initialData, onSuccess }: 
       let result;
       
       if (editMode && initialData) {
-        console.log("Mise à jour de la demande avec:", requestData);
+        console.log("📤 Processed data for API:", JSON.stringify(requestData, null, 2));
         result = await updateEmailRequest(initialData.id, {
           title: data.title,
           dueDate: data.dueDate, // Keep as string
