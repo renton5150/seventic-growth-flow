@@ -25,15 +25,17 @@ serve(async (req) => {
       throw new Error("Anthropic API key not configured");
     }
 
-    console.log("[AI Chat] Récupération COMPLÈTE des données avec focus CRA...");
+    console.log("[AI Chat] 🔥 RÉCUPÉRATION EXHAUSTIVE DE TOUTES LES DONNÉES - ZÉRO RESTRICTION 🔥");
 
-    // 1. Récupérer les utilisateurs et leurs profils complets
+    // ========== SECTION 1: UTILISATEURS ET PROFILS ==========
+    console.log("[AI Chat] 📋 Récupération des utilisateurs...");
     const { data: users } = await supabase
       .from('profiles')
       .select('id, name, email, role, avatar, created_at')
       .in('role', ['sdr', 'growth', 'admin']);
 
-    // 2. Récupérer TOUTES les demandes avec détails complets
+    // ========== SECTION 2: DEMANDES COMPLÈTES AVEC TOUS LES DÉTAILS ==========
+    console.log("[AI Chat] 📨 Récupération des demandes avec détails complets...");
     const { data: requests } = await supabase
       .from('requests_with_missions')
       .select(`
@@ -41,17 +43,70 @@ serve(async (req) => {
         created_by, assigned_to, due_date, created_at, updated_at,
         mission_id, mission_name, mission_client, sdr_name, assigned_to_name,
         target_role, details
-      `);
+      `)
+      .order('created_at', { ascending: false })
+      .limit(500);
 
-    // 3. Récupérer TOUTES les missions avec leurs détails complets
+    // ========== SECTION 2B: DEMANDES BRUTES POUR ANALYSE COMPLÈTE ==========
+    console.log("[AI Chat] 🔍 Récupération des demandes brutes avec détails JSON...");
+    const { data: rawRequests } = await supabase
+      .from('requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    // ========== SECTION 3: MISSIONS COMPLÈTES ==========
+    console.log("[AI Chat] 🎯 Récupération des missions complètes...");
     const { data: missions } = await supabase
       .from('missions')
       .select(`
         id, name, client, type, status, sdr_id, growth_id,
         start_date, end_date, created_at, updated_at, description,
+        types_prestation, objectif_mensuel_rdv, criteres_qualification,
+        interlocuteurs_cibles, login_connexion,
         sdr:profiles!missions_sdr_id_fkey(name, email),
         growth:profiles!missions_growth_id_fkey(name, email)
-      `);
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    // ========== SECTION 4: PLATEFORMES EMAIL ET COMPTES ==========
+    console.log("[AI Chat] 📧 Récupération des plateformes email...");
+    const { data: emailPlatforms } = await supabase
+      .from('email_platforms')
+      .select('*');
+    
+    const { data: emailPlatformAccounts } = await supabase
+      .from('email_platform_accounts')
+      .select(`
+        id, login, status, spf_dkim_status, domain_name, 
+        routing_interfaces, created_at, updated_at,
+        mission_id, platform_id, created_by
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    // ========== SECTION 5: DOMAINES ==========
+    console.log("[AI Chat] 🌐 Récupération des domaines...");
+    const { data: domains } = await supabase
+      .from('domains')
+      .select(`
+        id, domain_name, status, creation_date, expiration_date,
+        hosting_provider, login, mission_id, created_at, updated_at
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    // ========== SECTION 6: FICHIERS ET BASES DE DONNÉES ==========
+    console.log("[AI Chat] 💾 Récupération des fichiers de bases de données...");
+    const { data: databaseFiles } = await supabase
+      .from('database_files')
+      .select(`
+        id, name, file_name, file_type, file_size, file_url,
+        uploaded_by, uploader_name, created_at
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     // 4. **RÉCUPÉRATION COMPLÈTE DES DONNÉES TÉLÉTRAVAIL - CRITIQUE**
     console.log("[AI Chat] Récupération CRITIQUE des données de télétravail...");
@@ -146,12 +201,40 @@ serve(async (req) => {
       .select('*')
       .limit(20);
 
-    console.log("[AI Chat] Données récupérées:", {
+    // ========== SECTION 7: COMPTES ACELLE ET CAMPAGNES EMAIL ==========
+    console.log("[AI Chat] 🔗 Récupération des comptes Acelle...");
+    const { data: acelleAccounts } = await supabase
+      .from('acelle_accounts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    // ========== SECTION 8: INVITATIONS ET RELATIONS ==========
+    console.log("[AI Chat] 📬 Récupération des invitations utilisateurs...");
+    const { data: userInvitations } = await supabase
+      .from('user_invitations')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    // ========== LOGS DE DIAGNOSTIC COMPLETS ==========
+    console.log("[AI Chat] 📊 DONNÉES RÉCUPÉRÉES - BILAN COMPLET:", {
+      users: users?.length || 0,
+      requests: requests?.length || 0,
+      rawRequests: rawRequests?.length || 0,
+      missions: missions?.length || 0,
+      emailPlatforms: emailPlatforms?.length || 0,
+      emailPlatformAccounts: emailPlatformAccounts?.length || 0,
+      domains: domains?.length || 0,
+      databaseFiles: databaseFiles?.length || 0,
+      acelleAccounts: acelleAccounts?.length || 0,
+      userInvitations: userInvitations?.length || 0,
       teleworkRequests: teleworkRequests?.length || 0,
       teleworkWithProfiles: teleworkWithProfiles?.length || 0,
       craReports: craReports?.length || 0,
       missionTimes: missionTimes?.length || 0,
-      opportunities: opportunities?.length || 0
+      opportunities: opportunities?.length || 0,
+      emailCampaigns: emailCampaigns?.length || 0
     });
 
     // 6. **ANALYSE COMPLÈTE DES DONNÉES TÉLÉTRAVAIL AVEC RECHERCHE SPÉCIFIQUE**
@@ -492,7 +575,106 @@ serve(async (req) => {
       }, {} as Record<string, number>) || {}
     };
 
-    // **CONSTRUIRE LE CONTEXTE PRIORITÉ TÉLÉTRAVAIL**
+    // ========== SECTION 9: ANALYSE COMPLÈTE DES DEMANDES EMAIL ==========
+    console.log("[AI Chat] 📧 Analyse complète des demandes email...");
+    
+    // Analyser les demandes emails avec leurs détails complets
+    const emailRequestsAnalysis = rawRequests?.filter(req => req.type === 'email').map(req => {
+      const details = req.details || {};
+      const template = details.template || {};
+      const database = details.database || {};
+      const blacklist = details.blacklist || {};
+      
+      return {
+        id: req.id,
+        title: req.title,
+        status: req.workflow_status,
+        createdAt: req.created_at,
+        dueDate: req.due_date,
+        emailType: details.emailType || 'N/A',
+        template: {
+          subject: template.subject || 'N/A',
+          content: template.content || 'N/A',
+          fileUrl: template.fileUrl || 'N/A',
+          webLink: template.webLink || 'N/A'
+        },
+        database: {
+          fileUrls: database.fileUrls || database.fileUrl ? [database.fileUrl] : [],
+          webLinks: database.webLinks || [],
+          notes: database.notes || 'N/A'
+        },
+        blacklist: {
+          accounts: blacklist.accounts || {},
+          emails: blacklist.emails || {}
+        },
+        targetRole: req.target_role || 'N/A'
+      };
+    }) || [];
+
+    // Analyser les demandes LinkedIn 
+    const linkedinRequestsAnalysis = rawRequests?.filter(req => req.type === 'linkedin').map(req => {
+      const details = req.details || {};
+      const targeting = details.targeting || {};
+      
+      return {
+        id: req.id,
+        title: req.title,
+        status: req.workflow_status,
+        createdAt: req.created_at,
+        dueDate: req.due_date,
+        targeting: {
+          criteria: targeting.criteria || 'N/A',
+          location: targeting.location || 'N/A',
+          industry: targeting.industry || 'N/A',
+          jobTitle: targeting.jobTitle || 'N/A',
+          companySize: targeting.companySize || 'N/A',
+          additionalNotes: targeting.additionalNotes || 'N/A'
+        },
+        targetRole: req.target_role || 'N/A'
+      };
+    }) || [];
+
+    // Analyser les demandes de base de données
+    const databaseRequestsAnalysis = rawRequests?.filter(req => req.type === 'database').map(req => {
+      const details = req.details || {};
+      const targeting = details.targeting || {};
+      const blacklist = details.blacklist || {};
+      
+      return {
+        id: req.id,
+        title: req.title,
+        status: req.workflow_status,
+        createdAt: req.created_at,
+        dueDate: req.due_date,
+        targeting: {
+          criteria: targeting.criteria || 'N/A',
+          location: targeting.location || 'N/A',
+          industry: targeting.industry || 'N/A',
+          jobTitle: targeting.jobTitle || 'N/A',
+          companySize: targeting.companySize || 'N/A',
+          additionalNotes: targeting.additionalNotes || 'N/A'
+        },
+        blacklist: {
+          accounts: blacklist.accounts || {},
+          emails: blacklist.emails || {}
+        },
+        targetRole: req.target_role || 'N/A'
+      };
+    }) || [];
+
+    console.log("[AI Chat] 📊 ANALYSE DES DEMANDES COMPLÉTÉE:", {
+      emailRequests: emailRequestsAnalysis.length,
+      linkedinRequests: linkedinRequestsAnalysis.length,
+      databaseRequests: databaseRequestsAnalysis.length,
+      sampleEmailContent: emailRequestsAnalysis.slice(0, 2).map(req => ({
+        id: req.id,
+        hasSubject: !!req.template.subject,
+        hasContent: !!req.template.content,
+        contentLength: req.template.content?.length || 0
+      }))
+    });
+
+    // **CONSTRUIRE LE CONTEXTE ULTRA-COMPLET AVEC TOUTES LES DONNÉES**
     let dataContext = `
 === 🚨 DONNÉES PRIORITAIRES TÉLÉTRAVAIL - RÉPONDRE EN PREMIER ===
 Application Seventic - PLANNING TÉLÉTRAVAIL COMPLET ET DÉTAILLÉ
@@ -659,12 +841,122 @@ ${craReports.slice(0, 15).map(cra => `• ${cra.profiles?.name || 'SDR Inconnu'}
 • "En attente" pour SDR = demandes qu'ils ont créées en pending_assignment/in_progress
 • "En attente" pour Growth = demandes qui leur sont assignées en pending_assignment/in_progress
 
+=== 📧 DEMANDES EMAIL - DÉTAILS COMPLETS AVEC CONTENUS ===
+${emailRequestsAnalysis.length > 0 ? `
+Total demandes email: ${emailRequestsAnalysis.length}
+
+DEMANDES EMAIL DÉTAILLÉES:
+${emailRequestsAnalysis.slice(0, 20).map(req => `
+📧 DEMANDE EMAIL: "${req.title}" (ID: ${req.id})
+   • Statut: ${req.status}
+   • Type email: ${req.emailType}
+   • Rôle ciblé: ${req.targetRole}
+   • Créée le: ${new Date(req.createdAt).toLocaleDateString('fr-FR')}
+   • Échéance: ${req.dueDate ? new Date(req.dueDate).toLocaleDateString('fr-FR') : 'Non définie'}
+   
+   📝 TEMPLATE EMAIL:
+      - Sujet: "${req.template.subject}"
+      - Contenu: ${req.template.content !== 'N/A' ? `"${req.template.content.substring(0, 200)}${req.template.content.length > 200 ? '...' : ''}"` : 'Pas de contenu'}
+      - Fichier template: ${req.template.fileUrl !== 'N/A' ? 'Oui' : 'Non'}
+      - Lien web: ${req.template.webLink !== 'N/A' ? req.template.webLink : 'Non'}
+   
+   💾 BASE DE DONNÉES:
+      - Fichiers: ${req.database.fileUrls.length} fichier(s)
+      - Liens web: ${req.database.webLinks.length} lien(s)
+      - Notes: ${req.database.notes !== 'N/A' ? req.database.notes.substring(0, 100) : 'Aucune note'}
+   
+   🚫 BLACKLIST:
+      - Comptes: ${Object.keys(req.blacklist.accounts).length > 0 ? 'Configurée' : 'Non configurée'}
+      - Emails: ${Object.keys(req.blacklist.emails).length > 0 ? 'Configurée' : 'Non configurée'}
+`).join('')}` : 'Aucune demande email trouvée'}
+
+=== 🔗 DEMANDES LINKEDIN - DÉTAILS COMPLETS ===
+${linkedinRequestsAnalysis.length > 0 ? `
+Total demandes LinkedIn: ${linkedinRequestsAnalysis.length}
+
+DEMANDES LINKEDIN DÉTAILLÉES:
+${linkedinRequestsAnalysis.slice(0, 15).map(req => `
+🔗 DEMANDE LINKEDIN: "${req.title}" (ID: ${req.id})
+   • Statut: ${req.status}
+   • Rôle ciblé: ${req.targetRole}
+   • Créée le: ${new Date(req.createdAt).toLocaleDateString('fr-FR')}
+   • Échéance: ${req.dueDate ? new Date(req.dueDate).toLocaleDateString('fr-FR') : 'Non définie'}
+   
+   🎯 CRITÈRES DE CIBLAGE:
+      - Critères: ${req.targeting.criteria}
+      - Localisation: ${req.targeting.location}
+      - Secteur: ${req.targeting.industry}
+      - Poste: ${req.targeting.jobTitle}
+      - Taille entreprise: ${req.targeting.companySize}
+      - Notes supplémentaires: ${req.targeting.additionalNotes}
+`).join('')}` : 'Aucune demande LinkedIn trouvée'}
+
+=== 💾 DEMANDES BASE DE DONNÉES - DÉTAILS COMPLETS ===
+${databaseRequestsAnalysis.length > 0 ? `
+Total demandes base de données: ${databaseRequestsAnalysis.length}
+
+DEMANDES BASE DE DONNÉES DÉTAILLÉES:
+${databaseRequestsAnalysis.slice(0, 15).map(req => `
+💾 DEMANDE BDD: "${req.title}" (ID: ${req.id})
+   • Statut: ${req.status}
+   • Rôle ciblé: ${req.targetRole}
+   • Créée le: ${new Date(req.createdAt).toLocaleDateString('fr-FR')}
+   • Échéance: ${req.dueDate ? new Date(req.dueDate).toLocaleDateString('fr-FR') : 'Non définie'}
+   
+   🎯 CRITÈRES DE CIBLAGE:
+      - Critères: ${req.targeting.criteria}
+      - Localisation: ${req.targeting.location}
+      - Secteur: ${req.targeting.industry}
+      - Poste: ${req.targeting.jobTitle}
+      - Taille entreprise: ${req.targeting.companySize}
+      - Notes supplémentaires: ${req.targeting.additionalNotes}
+   
+   🚫 BLACKLIST:
+      - Comptes: ${Object.keys(req.blacklist.accounts).length > 0 ? 'Configurée' : 'Non configurée'}
+      - Emails: ${Object.keys(req.blacklist.emails).length > 0 ? 'Configurée' : 'Non configurée'}
+`).join('')}` : 'Aucune demande de base de données trouvée'}
+
+=== 🌐 PLATEFORMES EMAIL ET DOMAINES ===
+${emailPlatforms?.length ? `
+Plateformes email disponibles: ${emailPlatforms.length}
+${emailPlatforms.map(platform => `• ${platform.name}`).join('\n')}
+
+Comptes plateformes email: ${emailPlatformAccounts?.length || 0}
+${emailPlatformAccounts?.slice(0, 10).map(account => `
+• Login: ${account.login} | Statut: ${account.status} | SPF/DKIM: ${account.spf_dkim_status}
+  Domaine: ${account.domain_name || 'Non configuré'}
+`).join('')}` : 'Aucune plateforme email configurée'}
+
+${domains?.length ? `
+Domaines configurés: ${domains.length}
+${domains.slice(0, 10).map(domain => `
+• ${domain.domain_name} | Statut: ${domain.status}
+  Expiration: ${new Date(domain.expiration_date).toLocaleDateString('fr-FR')}
+  Hébergeur: ${domain.hosting_provider || 'Non spécifié'}
+`).join('')}` : 'Aucun domaine configuré'}
+
+=== 💾 FICHIERS DE BASES DE DONNÉES ===
+${databaseFiles?.length ? `
+Fichiers de bases disponibles: ${databaseFiles.length}
+${databaseFiles.slice(0, 15).map(file => `
+• "${file.name}" (${file.file_name})
+  Type: ${file.file_type} | Taille: ${Math.round(file.file_size / 1024)}KB
+  Uploadé par: ${file.uploader_name || 'Inconnu'} le ${new Date(file.created_at).toLocaleDateString('fr-FR')}
+`).join('')}` : 'Aucun fichier de base de données'}
+
 📊 EXEMPLES DE QUESTIONS QUE TU PEUX TRAITER:
 - "Combien de temps le SDR X a-t-il passé sur la mission Datatilt ?"
 - "Quelles sont les opportunités identifiées sur la mission Y ?"
 - "Quel SDR a le plus travaillé sur les missions Full ?"
 - "Quelle est la répartition du temps de travail du SDR Z ?"
 - "Combien d'opportunités 20% ont été identifiées ce mois ?"
+- "Quel est le contenu du template email pour la demande X ?"
+- "Combien de demandes emails ont été créées ce mois-ci ?"
+- "Montre-moi les détails de la dernière demande LinkedIn"
+- "Quelles sont les statistiques des campagnes email en cours ?"
+- "Qui sera en télétravail demain ?"
+- "Quels domaines arrivent à expiration bientôt ?"
+- "Combien de fichiers de bases ont été uploadés cette semaine ?"
 `;
 
     console.log("[AI Chat] Envoi du contexte CRITIQUE TÉLÉTRAVAIL à Claude avec", {
@@ -753,6 +1045,16 @@ Réponds de manière conversationnelle et très précise en citant les données 
             users: users?.length || 0,
             missions: missions?.length || 0,
             requests: requests?.length || 0,
+            rawRequests: rawRequests?.length || 0,
+            emailRequestsAnalysis: emailRequestsAnalysis?.length || 0,
+            linkedinRequestsAnalysis: linkedinRequestsAnalysis?.length || 0,
+            databaseRequestsAnalysis: databaseRequestsAnalysis?.length || 0,
+            emailPlatforms: emailPlatforms?.length || 0,
+            emailPlatformAccounts: emailPlatformAccounts?.length || 0,
+            domains: domains?.length || 0,
+            databaseFiles: databaseFiles?.length || 0,
+            acelleAccounts: acelleAccounts?.length || 0,
+            userInvitations: userInvitations?.length || 0,
             teleworkRequests: teleworkRequests?.length || 0,
             teleworkWithProfiles: teleworkWithProfiles?.length || 0,
             teleworkDatesIndexed: Object.keys(teleworkByDate).length,
@@ -761,7 +1063,8 @@ Réponds de manière conversationnelle et très précise en citant les données 
             missionTimes: missionTimes?.length || 0,
             opportunities: opportunities?.length || 0,
             craAnalysisSDRs: Object.keys(craAnalysis).length,
-            opportunitiesAnalyzed: Object.keys(opportunitiesAnalysis).length
+            opportunitiesAnalyzed: Object.keys(opportunitiesAnalysis).length,
+            emailCampaigns: emailCampaigns?.length || 0
           }
         }
       }),
