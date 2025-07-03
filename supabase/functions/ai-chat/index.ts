@@ -56,24 +56,45 @@ serve(async (req) => {
     // 4. **RÉCUPÉRATION COMPLÈTE DES DONNÉES TÉLÉTRAVAIL - CRITIQUE**
     console.log("[AI Chat] Récupération CRITIQUE des données de télétravail...");
     
-    // Récupérer TOUTES les demandes de télétravail avec détails utilisateur
+    // Récupérer TOUTES les demandes de télétravail avec détails utilisateur (MÉTHODE CORRIGÉE)
     const { data: teleworkRequests, error: teleworkError } = await supabase
       .from('work_schedule_requests')
       .select(`
         id, user_id, start_date, end_date, request_type, status, reason,
-        is_exceptional, created_at, approved_at, approved_by,
-        profiles!work_schedule_requests_user_id_fkey(name, email, role)
+        is_exceptional, created_at, approved_at, approved_by
       `)
       .eq('request_type', 'telework')
       .eq('status', 'approved')
       .order('start_date', { ascending: false })
       .limit(500);
 
-    console.log("[AI Chat] TÉLÉTRAVAIL - Résultats:", {
+    console.log("[AI Chat] TÉLÉTRAVAIL - Étape 1 - Demandes récupérées:", {
       teleworkRequests: teleworkRequests?.length || 0,
       teleworkError: teleworkError?.message || 'Aucune erreur',
       sampleData: teleworkRequests?.slice(0, 3)
     });
+
+    // Récupérer séparément les profils pour éviter les problèmes de jointure
+    const userIds = teleworkRequests?.map(req => req.user_id) || [];
+    const { data: userProfiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, name, email, role')
+      .in('id', userIds);
+
+    console.log("[AI Chat] TÉLÉTRAVAIL - Étape 2 - Profils récupérés:", {
+      userProfiles: userProfiles?.length || 0,
+      profilesError: profilesError?.message || 'Aucune erreur',
+      sampleProfiles: userProfiles?.slice(0, 3)
+    });
+
+    // Joindre manuellement les données
+    const teleworkWithProfiles = teleworkRequests?.map(request => {
+      const profile = userProfiles?.find(p => p.id === request.user_id);
+      return {
+        ...request,
+        profiles: profile
+      };
+    }) || [];
 
     // 5. **NOUVELLE SECTION CRUCIALE** - Récupérer TOUS les détails CRA avec jointures complètes
     console.log("[AI Chat] Récupération détaillée des données CRA...");
@@ -127,6 +148,7 @@ serve(async (req) => {
 
     console.log("[AI Chat] Données récupérées:", {
       teleworkRequests: teleworkRequests?.length || 0,
+      teleworkWithProfiles: teleworkWithProfiles?.length || 0,
       craReports: craReports?.length || 0,
       missionTimes: missionTimes?.length || 0,
       opportunities: opportunities?.length || 0
@@ -140,7 +162,7 @@ serve(async (req) => {
 
     // AJOUT - Créer un index de télétravail par date pour recherche rapide
     const teleworkByDate = {};
-    teleworkRequests?.forEach(request => {
+    teleworkWithProfiles?.forEach(request => {
       const startDate = new Date(request.start_date);
       const endDate = new Date(request.end_date);
       const userName = request.profiles?.name || 'Utilisateur Inconnu';
@@ -166,7 +188,7 @@ serve(async (req) => {
       july4Data: teleworkByDate['2025-07-04'] || 'Aucune donnée pour le 4 juillet 2025'
     });
     
-    teleworkRequests?.forEach(request => {
+    teleworkWithProfiles?.forEach(request => {
       const userName = request.profiles?.name || 'Utilisateur Inconnu';
       const startDate = new Date(request.start_date);
       const endDate = new Date(request.end_date);
@@ -498,7 +520,7 @@ ${Object.entries(teleworkAnalysis).map(([userName, analysis]) => `
 `).join('')}
 
 📋 LISTE COMPLÈTE DES TÉLÉTRAVAILS:
-${teleworkRequests ? teleworkRequests.slice(0, 50).map(req => {
+${teleworkWithProfiles ? teleworkWithProfiles.slice(0, 50).map(req => {
   const userName = req.profiles?.name || 'Utilisateur Inconnu';
   const startDate = req.start_date;
   const endDate = req.end_date;
@@ -732,6 +754,7 @@ Réponds de manière conversationnelle et très précise en citant les données 
             missions: missions?.length || 0,
             requests: requests?.length || 0,
             teleworkRequests: teleworkRequests?.length || 0,
+            teleworkWithProfiles: teleworkWithProfiles?.length || 0,
             teleworkDatesIndexed: Object.keys(teleworkByDate).length,
             july4TeleworkUsers: teleworkByDate['2025-07-04']?.map(p => p.userName) || [],
             craReports: craReports?.length || 0,
