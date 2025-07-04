@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
-import { UserActionsMenu } from "./user-actions/UserActionsMenu";
+import { UserActionsDropdown } from "./UserActionsDropdown";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface UsersTableProps {
@@ -81,7 +81,7 @@ export const UsersTable = ({ users, isLoading, onRefresh }: UsersTableProps) => 
               <TableCell>{user.email}</TableCell>
               <TableCell>{getRoleBadge(user.role)}</TableCell>
               <TableCell className="text-right">
-                <UserActionsMenu user={user} onActionComplete={handleActionComplete} />
+                <UserActionsDropdown user={user} onRefresh={handleActionComplete} />
               </TableCell>
             </TableRow>
           ))}

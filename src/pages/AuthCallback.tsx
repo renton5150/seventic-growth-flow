@@ -93,20 +93,23 @@ const AuthCallback = () => {
               console.log("✅ Session configurée avec succès depuis le hash");
               setStatus("success");
               
-              // Déterminer la redirection selon le type
+              // Rediriger vers reset-password avec les tokens dans l'URL pour préserver la session
+              const resetUrl = new URL('/reset-password', window.location.origin);
+              resetUrl.searchParams.set('type', type === "invite" || tokenType === "invite" || tokenType === "signup" ? 'invite' : 'recovery');
+              resetUrl.searchParams.set('email', emailParam || data?.user?.email || '');
+              resetUrl.hash = `access_token=${accessToken}&refresh_token=${refreshToken}&type=${tokenType || type || 'recovery'}`;
+              
               if (type === "invite" || tokenType === "invite" || tokenType === "signup") {
                 console.log("🎉 Invitation acceptée - redirection vers reset password");
                 setMessage("Compte activé avec succès ! Redirection vers la définition du mot de passe...");
-                setTimeout(() => {
-                  navigate(`/reset-password?type=invite&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
-                }, 2000);
               } else {
                 console.log("🔄 Récupération de mot de passe - redirection vers reset password");
                 setMessage("Authentification réussie ! Redirection vers la réinitialisation du mot de passe...");
-                setTimeout(() => {
-                  navigate(`/reset-password?type=recovery&email=${encodeURIComponent(emailParam || data?.user?.email || '')}`);
-                }, 2000);
               }
+              
+              setTimeout(() => {
+                window.location.href = resetUrl.toString();
+              }, 2000);
               
               return;
             } catch (err) {
@@ -140,7 +143,7 @@ const AuthCallback = () => {
             if (type === "invite") {
               navigate(`/reset-password?type=invite&email=${encodeURIComponent(emailParam || session.user?.email || '')}`);
             } else {
-              navigate("/dashboard");
+              navigate(`/reset-password?type=recovery&email=${encodeURIComponent(emailParam || session.user?.email || '')}`);
             }
           }, 1500);
         } else {
