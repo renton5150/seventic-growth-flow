@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subDays } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subDays, subWeeks } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export interface DateRange {
@@ -34,6 +33,13 @@ export const DateRangeFilter = ({ onDateRangeChange, currentRange }: DateRangeFi
       range: {
         from: startOfWeek(new Date(), { locale: fr }),
         to: endOfWeek(new Date(), { locale: fr })
+      }
+    },
+    {
+      label: "La semaine dernière",
+      range: {
+        from: startOfWeek(subWeeks(new Date(), 1), { locale: fr }),
+        to: endOfWeek(subWeeks(new Date(), 1), { locale: fr })
       }
     },
     {
