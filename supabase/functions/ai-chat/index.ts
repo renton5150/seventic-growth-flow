@@ -80,6 +80,97 @@ serve(async (req) => {
       .select('id, name, email, role, avatar, created_at')
       .in('role', ['sdr', 'growth', 'admin']);
 
+    // ========== PHASE 1: CRÉATION DES ANALYSES TEMPORELLES PRIORITAIRES ==========
+    console.log("[AI Chat] 📊 CRÉATION ANALYSES TEMPORELLES - PRIORITÉ ABSOLUE");
+
+    // Index télétravail par date avec prévisions 7 jours - CRÉÉ EN PREMIER
+    const teleworkByDate = {};
+    const next7Days = [];
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      const dateKey = date.toISOString().split('T')[0];
+      next7Days.push({
+        date: dateKey,
+        dayName: date.toLocaleDateString('fr-FR', { weekday: 'long' }),
+        isToday: i === 0,
+        isTomorrow: i === 1
+      });
+      teleworkByDate[dateKey] = [];
+    }
+
+    // Analyser les demandes par SDR pour aujourd'hui - CRÉÉ APRÈS L'INDEX
+    const todayRequestsBySDR = {};
+    const thisWeekRequestsBySDR = {};
+    const thisMonthRequestsBySDR = {};
+
+    users?.filter(u => u.role === 'sdr').forEach(sdr => {
+      const todayCount = todayRequests?.filter(req => req.created_by === sdr.id).length || 0;
+      const weekCount = thisWeekRequests?.filter(req => req.created_by === sdr.id).length || 0;
+      const monthCount = thisMonthRequests?.filter(req => req.created_by === sdr.id).length || 0;
+
+      todayRequestsBySDR[sdr.name] = {
+        count: todayCount,
+        email: sdr.email,
+        requests: todayRequests?.filter(req => req.created_by === sdr.id) || []
+      };
+
+      thisWeekRequestsBySDR[sdr.name] = {
+        count: weekCount,
+        email: sdr.email
+      };
+
+      thisMonthRequestsBySDR[sdr.name] = {
+        count: monthCount,
+        email: sdr.email
+      };
+    });
+
+    // ========== SECTION 6: TÉLÉTRAVAIL COMPLET AVEC PRÉVISIONS ==========
+    console.log("[AI Chat] 🏠 Récupération télétravail complet avec prévisions...");
+    const { data: teleworkRequests } = await supabase
+      .from('work_schedule_requests')
+      .select(`
+        id, user_id, start_date, end_date, request_type, status, reason,
+        is_exceptional, created_at, approved_at, approved_by
+      `)
+      .eq('request_type', 'telework')
+      .eq('status', 'approved')
+      .order('start_date', { ascending: false })
+      .limit(1000);
+
+    const userIds = teleworkRequests?.map(req => req.user_id) || [];
+    const { data: userProfiles } = await supabase
+      .from('profiles')
+      .select('id, name, email, role')
+      .in('id', userIds);
+
+    const teleworkWithProfiles = teleworkRequests?.map(request => {
+      const profile = userProfiles?.find(p => p.id === request.user_id);
+      return { ...request, profiles: profile };
+    }) || [];
+
+    // REMPLIR L'INDEX TÉLÉTRAVAIL - APRÈS CRÉATION DE L'INDEX
+    teleworkWithProfiles?.forEach(request => {
+      const startDate = new Date(request.start_date);
+      const endDate = new Date(request.end_date);
+      const userName = request.profiles?.name || 'Utilisateur Inconnu';
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateKey = d.toISOString().split('T')[0];
+        if (teleworkByDate.hasOwnProperty(dateKey)) {
+          teleworkByDate[dateKey].push({
+            userName: userName,
+            userEmail: request.profiles?.email || '',
+            reason: request.reason,
+            isExceptional: request.is_exceptional,
+            fullPeriod: `${request.start_date} → ${request.end_date}`
+          });
+        }
+      }
+    });
+
     // ========== SECTION 2: TOUTES LES DEMANDES HISTORIQUES AVEC DÉTAILS ==========
     console.log("[AI Chat] 📨 Récupération COMPLÈTE des demandes historiques...");
     const { data: allRequests } = await supabase
@@ -156,30 +247,6 @@ serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(500);
 
-    // ========== SECTION 6: TÉLÉTRAVAIL COMPLET AVEC PRÉVISIONS ==========
-    console.log("[AI Chat] 🏠 Récupération télétravail complet avec prévisions...");
-    const { data: teleworkRequests } = await supabase
-      .from('work_schedule_requests')
-      .select(`
-        id, user_id, start_date, end_date, request_type, status, reason,
-        is_exceptional, created_at, approved_at, approved_by
-      `)
-      .eq('request_type', 'telework')
-      .eq('status', 'approved')
-      .order('start_date', { ascending: false })
-      .limit(1000);
-
-    const userIds = teleworkRequests?.map(req => req.user_id) || [];
-    const { data: userProfiles } = await supabase
-      .from('profiles')
-      .select('id, name, email, role')
-      .in('id', userIds);
-
-    const teleworkWithProfiles = teleworkRequests?.map(request => {
-      const profile = userProfiles?.find(p => p.id === request.user_id);
-      return { ...request, profiles: profile };
-    }) || [];
-
     // ========== SECTION 7: DONNÉES TECHNIQUES COMPLÈTES ==========
     console.log("[AI Chat] 🔧 Récupération données techniques...");
     const { data: emailPlatforms } = await supabase.from('email_platforms').select('*');
@@ -188,72 +255,6 @@ serve(async (req) => {
     const { data: databaseFiles } = await supabase.from('database_files').select('*').limit(200);
     const { data: acelleAccounts } = await supabase.from('acelle_accounts').select('*').limit(50);
     const { data: emailCampaigns } = await supabase.from('email_campaigns_cache').select('*').limit(100);
-
-    // ========== PHASE 1: ANALYSE TEMPORELLE DÉTAILLÉE TÉLÉTRAVAIL ==========
-    console.log("[AI Chat] 📊 CRÉATION ANALYSES TEMPORELLES TÉLÉTRAVAIL - 7 PROCHAINS JOURS");
-
-    // Analyser les demandes par SDR pour aujourd'hui
-    const todayRequestsBySDR = {};
-    const thisWeekRequestsBySDR = {};
-    const thisMonthRequestsBySDR = {};
-
-    users?.filter(u => u.role === 'sdr').forEach(sdr => {
-      const todayCount = todayRequests?.filter(req => req.created_by === sdr.id).length || 0;
-      const weekCount = thisWeekRequests?.filter(req => req.created_by === sdr.id).length || 0;
-      const monthCount = thisMonthRequests?.filter(req => req.created_by === sdr.id).length || 0;
-
-      todayRequestsBySDR[sdr.name] = {
-        count: todayCount,
-        email: sdr.email,
-        requests: todayRequests?.filter(req => req.created_by === sdr.id) || []
-      };
-
-      thisWeekRequestsBySDR[sdr.name] = {
-        count: weekCount,
-        email: sdr.email
-      };
-
-      thisMonthRequestsBySDR[sdr.name] = {
-        count: monthCount,
-        email: sdr.email
-      };
-    });
-
-    // Index télétravail par date avec prévisions 7 jours
-    const teleworkByDate = {};
-    const next7Days = [];
-    
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() + i);
-      const dateKey = date.toISOString().split('T')[0];
-      next7Days.push({
-        date: dateKey,
-        dayName: date.toLocaleDateString('fr-FR', { weekday: 'long' }),
-        isToday: i === 0,
-        isTomorrow: i === 1
-      });
-      teleworkByDate[dateKey] = [];
-    }
-
-    teleworkWithProfiles?.forEach(request => {
-      const startDate = new Date(request.start_date);
-      const endDate = new Date(request.end_date);
-      const userName = request.profiles?.name || 'Utilisateur Inconnu';
-      
-      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        const dateKey = d.toISOString().split('T')[0];
-        if (teleworkByDate.hasOwnProperty(dateKey)) {
-          teleworkByDate[dateKey].push({
-            userName: userName,
-            userEmail: request.profiles?.email || '',
-            reason: request.reason,
-            isExceptional: request.is_exceptional,
-            fullPeriod: `${request.start_date} → ${request.end_date}`
-          });
-        }
-      }
-    });
 
     // ========== PHASE 2: ANALYSE CONTENU EMAILS ET TEMPLATES ==========
     console.log("[AI Chat] 📧 ANALYSE COMPLÈTE DU CONTENU DES EMAILS");
@@ -429,7 +430,8 @@ serve(async (req) => {
       emailTemplatesAnalyzed: Object.keys(emailContentAnalysis).length,
       keywordsIndexed: Object.keys(keywordIndex).length,
       blacklistsAnalyzed: Object.keys(blacklistAnalysis).length,
-      sampleTodayRequests: todayRequests?.slice(0, 3).map(r => ({id: r.id, title: r.title, sdr: r.sdr_name}))
+      sampleTodayRequests: todayRequests?.slice(0, 3).map(r => ({id: r.id, title: r.title, sdr: r.sdr_name})),
+      teleworkTomorrow: teleworkByDate[tomorrowISOString]?.length || 0
     });
 
     // ========== CONSTRUCTION DU CONTEXTE ULTRA-ENRICHI ==========
