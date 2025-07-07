@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface UserWithStats {
@@ -23,12 +22,17 @@ export interface GlobalStatistics {
   totalLate: number;
 }
 
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
+
 /**
- * Service pour récupérer les statistiques globales - VERSION CORRIGÉE
+ * Service pour récupérer les statistiques globales - VERSION CORRIGÉE AVEC FILTRES DATE
  */
-export const fetchGlobalStatistics = async (): Promise<GlobalStatistics> => {
+export const fetchGlobalStatistics = async (dateRange?: DateRange | null): Promise<GlobalStatistics> => {
   try {
-    console.log("[GlobalStatistics] 🚀 Récupération des statistiques globales - VERSION CORRIGÉE");
+    console.log("[GlobalStatistics] 🚀 Récupération des statistiques globales avec filtre date:", dateRange);
     
     // 1. Récupérer tous les utilisateurs actifs
     const { data: users, error: usersError } = await supabase
@@ -41,38 +45,51 @@ export const fetchGlobalStatistics = async (): Promise<GlobalStatistics> => {
       throw new Error(`Erreur récupération utilisateurs: ${usersError.message}`);
     }
 
-    // 2. Récupérer toutes les demandes ACTIVES (non complétées, non annulées)
-    const { data: allRequests, error: requestsError } = await supabase
+    // 2. Construire la requête avec ou sans filtre de date
+    let activeRequestsQuery = supabase
       .from('requests_with_missions')
-      .select('workflow_status, due_date, assigned_to, created_by')
-      .not('workflow_status', 'in', '(completed,canceled)'); // Exclure les complétées et annulées
+      .select('workflow_status, due_date, assigned_to, created_by, created_at')
+      .not('workflow_status', 'in', '(completed,canceled)');
+
+    // Appliquer le filtre de date si fourni
+    if (dateRange) {
+      activeRequestsQuery = activeRequestsQuery
+        .gte('created_at', dateRange.from.toISOString())
+        .lte('created_at', dateRange.to.toISOString());
+    }
+
+    const { data: allRequests, error: requestsError } = await activeRequestsQuery;
 
     if (requestsError) {
       console.error("[GlobalStatistics] ❌ Erreur requests:", requestsError);
       throw new Error(`Erreur récupération demandes: ${requestsError.message}`);
     }
 
-    console.log(`[GlobalStatistics] 📊 ${allRequests?.length || 0} demandes actives trouvées`);
+    console.log(`[GlobalStatistics] 📊 ${allRequests?.length || 0} demandes actives trouvées avec filtres`);
 
-    // 3. Calculer les statistiques globales basées sur les demandes ACTIVES uniquement
+    // 3. Calculer les statistiques globales basées sur les demandes filtrées
     const totalUsers = users?.length || 0;
     
-    // Demandes en attente = pending_assignment OU in_progress
     const totalPending = allRequests?.filter(req => 
       req.workflow_status === 'pending_assignment' || 
       req.workflow_status === 'in_progress'
     ).length || 0;
     
-    // Demandes terminées = celles avec workflow_status 'completed' (mais on les a exclues de la requête)
-    // Donc on va les récupérer séparément
-    const { data: completedRequests } = await supabase
+    // Pour les demandes terminées, utiliser une requête séparée avec filtre date si nécessaire
+    let completedQuery = supabase
       .from('requests_with_missions')
       .select('id')
       .eq('workflow_status', 'completed');
-    
+
+    if (dateRange) {
+      completedQuery = completedQuery
+        .gte('created_at', dateRange.from.toISOString())
+        .lte('created_at', dateRange.to.toISOString());
+    }
+
+    const { data: completedRequests } = await completedQuery;
     const totalCompleted = completedRequests?.length || 0;
     
-    // Demandes en retard = demandes actives avec due_date dépassée
     const totalLate = allRequests?.filter(req => 
       req.due_date && 
       new Date(req.due_date) < new Date()
@@ -85,7 +102,7 @@ export const fetchGlobalStatistics = async (): Promise<GlobalStatistics> => {
       totalLate
     };
 
-    console.log("[GlobalStatistics] ✅ Statistiques globales calculées (VERSION CORRIGÉE):", globalStats);
+    console.log("[GlobalStatistics] ✅ Statistiques globales calculées avec filtres:", globalStats);
     
     return globalStats;
   } catch (error) {
@@ -95,11 +112,11 @@ export const fetchGlobalStatistics = async (): Promise<GlobalStatistics> => {
 };
 
 /**
- * Service pour récupérer les statistiques des utilisateurs - VERSION ULTRA CORRIGÉE
+ * Service pour récupérer les statistiques des utilisateurs avec filtre de date
  */
-export const fetchUserStatistics = async (): Promise<UserWithStats[]> => {
+export const fetchUserStatistics = async (dateRange?: DateRange | null): Promise<UserWithStats[]> => {
   try {
-    console.log("[UserStatisticsService] 🚀 DÉMARRAGE ULTRA CORRIGÉ - Récupération des statistiques utilisateur");
+    console.log("[UserStatisticsService] 🚀 DÉMARRAGE avec filtre date:", dateRange);
     
     // 1. Récupérer tous les utilisateurs SDR et Growth
     const { data: users, error: usersError } = await supabase
@@ -117,48 +134,50 @@ export const fetchUserStatistics = async (): Promise<UserWithStats[]> => {
       return [];
     }
 
-    console.log(`[UserStatisticsService] 👥 ${users.length} utilisateurs récupérés:`, users.map(u => ({ name: u.name, role: u.role })));
+    console.log(`[UserStatisticsService] 👥 ${users.length} utilisateurs récupérés`);
 
-    // 2. Récupérer TOUTES les demandes avec les détails
-    const { data: allRequests, error: requestsError } = await supabase
-      .from('requests_with_missions')
-      .select('*');
+    // 2. Construire la requête de demandes avec filtre de date optionnel
+    let requestsQuery = supabase.from('requests_with_missions').select('*');
+    
+    if (dateRange) {
+      requestsQuery = requestsQuery
+        .gte('created_at', dateRange.from.toISOString())
+        .lte('created_at', dateRange.to.toISOString());
+    }
+
+    const { data: allRequests, error: requestsError } = await requestsQuery;
 
     if (requestsError) {
       console.error("[UserStatisticsService] ❌ Erreur requests:", requestsError);
       throw new Error(`Erreur récupération demandes: ${requestsError.message}`);
     }
 
-    console.log(`[UserStatisticsService] 📋 ${allRequests?.length || 0} demandes récupérées au total`);
+    console.log(`[UserStatisticsService] 📋 ${allRequests?.length || 0} demandes récupérées avec filtres`);
 
-    // 3. CALCUL CORRIGÉ : Demandes non assignées (pour Growth)
+    // 3. Calculer les demandes non assignées pour Growth
     const unassignedRequests = allRequests?.filter(req => 
       !req.assigned_to && 
       req.workflow_status !== 'completed' && 
       req.workflow_status !== 'canceled'
     ) || [];
     
-    console.log(`[UserStatisticsService] 🔍 ULTRA CORRIGÉ - Demandes non assignées: ${unassignedRequests.length}`);
+    console.log(`[UserStatisticsService] 🔍 Demandes non assignées: ${unassignedRequests.length}`);
 
-    // 4. Calculer les stats pour chaque utilisateur - LOGIQUE ULTRA CORRIGÉE
+    // 4. Calculer les stats pour chaque utilisateur avec les données filtrées
     const usersWithStats: UserWithStats[] = users.map(user => {
       let userRequests;
       let stats;
 
       if (user.role === 'sdr') {
-        // Pour SDR : demandes créées par eux (TOUTES, y compris complétées)
         userRequests = allRequests?.filter(req => req.created_by === user.id) || [];
         
-        // Calcul CORRIGÉ pour SDR
         stats = {
           total: userRequests.length,
-          // En attente = demandes créées par le SDR qui sont pending_assignment OU in_progress
           pending: userRequests.filter(req => 
             req.workflow_status === 'pending_assignment' || 
             req.workflow_status === 'in_progress'
           ).length,
           completed: userRequests.filter(req => req.workflow_status === 'completed').length,
-          // En retard = demandes créées par le SDR qui ne sont pas complétées ET ont due_date dépassée
           late: userRequests.filter(req => 
             req.workflow_status !== 'completed' && 
             req.workflow_status !== 'canceled' &&
@@ -167,51 +186,24 @@ export const fetchUserStatistics = async (): Promise<UserWithStats[]> => {
           ).length
         };
         
-        console.log(`[UserStatisticsService] 📊 SDR ${user.name} - ULTRA CORRIGÉ:`, {
-          total: stats.total,
-          pending: stats.pending,
-          completed: stats.completed,
-          late: stats.late,
-          'pending_requests_details': userRequests.filter(req => 
-            req.workflow_status === 'pending_assignment' || 
-            req.workflow_status === 'in_progress'
-          ).map(req => ({ id: req.id, title: req.title, workflow_status: req.workflow_status }))
-        });
-        
       } else {
-        // Pour Growth : demandes assignées à eux
         userRequests = allRequests?.filter(req => req.assigned_to === user.id) || [];
         
-        // Calcul CORRIGÉ pour Growth
         stats = {
           total: userRequests.length,
-          // En attente = demandes assignées au Growth qui sont pending_assignment OU in_progress
           pending: userRequests.filter(req => 
             req.workflow_status === 'pending_assignment' || 
             req.workflow_status === 'in_progress'
           ).length,
           completed: userRequests.filter(req => req.workflow_status === 'completed').length,
-          // En retard = demandes assignées au Growth qui ne sont pas complétées ET ont due_date dépassée
           late: userRequests.filter(req => 
             req.workflow_status !== 'completed' && 
             req.workflow_status !== 'canceled' &&
             req.due_date && 
             new Date(req.due_date) < new Date()
           ).length,
-          unassigned: unassignedRequests.length // MÊME NOMBRE pour tous les Growth
+          unassigned: unassignedRequests.length
         };
-        
-        console.log(`[UserStatisticsService] 📊 Growth ${user.name} - ULTRA CORRIGÉ:`, {
-          total: stats.total,
-          pending: stats.pending,
-          completed: stats.completed,
-          late: stats.late,
-          unassigned: stats.unassigned,
-          'pending_requests_details': userRequests.filter(req => 
-            req.workflow_status === 'pending_assignment' || 
-            req.workflow_status === 'in_progress'
-          ).map(req => ({ id: req.id, title: req.title, workflow_status: req.workflow_status }))
-        });
       }
 
       return {
@@ -224,7 +216,7 @@ export const fetchUserStatistics = async (): Promise<UserWithStats[]> => {
       };
     });
 
-    console.log("[UserStatisticsService] ✅ ULTRA CORRIGÉ - Statistiques calculées pour tous les utilisateurs");
+    console.log("[UserStatisticsService] ✅ Statistiques calculées avec filtres date");
     
     return usersWithStats;
   } catch (error) {

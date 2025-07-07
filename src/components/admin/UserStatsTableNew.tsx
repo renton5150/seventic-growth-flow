@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { fetchUserStatistics, debugUserStatistics, UserWithStats } from "@/services/admin/userStatisticsService";
+import { DateRangeFilter, DateRange } from "./DateRangeFilter";
 
 export const UserStatsTableNew = () => {
   const [activeTab, setActiveTab] = useState<"sdr" | "growth">("sdr");
@@ -29,17 +30,18 @@ export const UserStatsTableNew = () => {
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const navigate = useNavigate();
 
-  // Fonction pour charger les données FINALES CORRIGÉES
+  // Fonction pour charger les données avec filtre de date
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("[UserStatsTableNew] 🔄 Chargement des statistiques utilisateur - LOGIQUE FINALE CORRIGÉE");
+      console.log("[UserStatsTableNew] 🔄 Chargement avec filtre date:", dateRange);
       
-      const userData = await fetchUserStatistics();
-      console.log("[UserStatsTableNew] ✅ Données chargées FINALES CORRIGÉES:", userData);
+      const userData = await fetchUserStatistics(dateRange);
+      console.log("[UserStatsTableNew] ✅ Données chargées avec filtres:", userData);
       setUsers(userData);
     } catch (err) {
       console.error("[UserStatsTableNew] ❌ Erreur:", err);
@@ -49,14 +51,14 @@ export const UserStatsTableNew = () => {
     }
   };
 
-  // Charger les données au montage
+  // Charger les données au montage et quand le filtre de date change
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dateRange]);
 
-  // Fonction de debug FINALE CORRIGÉE
+  // Fonction de debug
   const handleDebug = async () => {
-    console.log("🔧 DÉCLENCHEMENT DEBUG MANUEL FINAL CORRIGÉ");
+    console.log("🔧 DÉCLENCHEMENT DEBUG MANUEL AVEC FILTRES");
     await debugUserStatistics();
     await loadData();
   };
@@ -74,39 +76,38 @@ export const UserStatsTableNew = () => {
     console.log(`[UserStatsTableNew] 🖱️ Clic sur utilisateur ${activeTab}: ${user.name} (ID: ${user.id})`);
     
     if (activeTab === "sdr") {
-      // Pour les SDR, filtrer par createdBy - ROUTE CORRIGÉE
       console.log(`[UserStatsTableNew] 📋 Navigation SDR - Filtrage par createdBy: ${user.id}`);
       navigate("/growth-dashboard", { 
         state: { 
           createdBy: user.id, 
           userName: user.name,
           filterType: 'sdr',
-          userId: user.id
+          userId: user.id,
+          dateRange: dateRange // Transmettre le filtre de date
         } 
       });
     } else {
-      // Pour les Growth, filtrer par assignedTo - ROUTE CORRIGÉE
       console.log(`[UserStatsTableNew] 📋 Navigation Growth - Filtrage par assignedTo: ${user.id}`);
       navigate("/growth-dashboard", { 
         state: { 
           assignedTo: user.id, 
           userName: user.name,
           filterType: 'growth',
-          userId: user.id
+          userId: user.id,
+          dateRange: dateRange // Transmettre le filtre de date
         } 
       });
     }
   };
 
-  // NOUVELLE FONCTION : Gestion du clic sur "Non assigné" - CORRIGÉE
   const handleUnassignedClick = () => {
     console.log(`[UserStatsTableNew] 🖱️ Clic sur demandes NON ASSIGNÉES`);
-    // Naviguer vers le dashboard Growth avec un filtre pour les demandes non assignées
     navigate("/growth-dashboard", { 
       state: { 
         showUnassigned: true,
         userName: "Demandes non assignées",
-        filterType: 'unassigned'
+        filterType: 'unassigned',
+        dateRange: dateRange // Transmettre le filtre de date
       } 
     });
   };
@@ -144,6 +145,13 @@ export const UserStatsTableNew = () => {
   if (loading) {
     return (
       <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Statistiques par utilisateur</h2>
+          <DateRangeFilter 
+            onDateRangeChange={setDateRange} 
+            currentRange={dateRange} 
+          />
+        </div>
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -152,18 +160,35 @@ export const UserStatsTableNew = () => {
 
   if (error) {
     return (
-      <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
-        <h3 className="font-bold text-red-800">Erreur</h3>
-        <p className="text-red-600">{error}</p>
-        <Button onClick={loadData} className="mt-2" variant="outline">
-          Réessayer
-        </Button>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Statistiques par utilisateur</h2>
+          <DateRangeFilter 
+            onDateRangeChange={setDateRange} 
+            currentRange={dateRange} 
+          />
+        </div>
+        <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+          <h3 className="font-bold text-red-800">Erreur</h3>
+          <p className="text-red-600">{error}</p>
+          <Button onClick={loadData} className="mt-2" variant="outline">
+            Réessayer
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Statistiques par utilisateur</h2>
+        <DateRangeFilter 
+          onDateRangeChange={setDateRange} 
+          currentRange={dateRange} 
+        />
+      </div>
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "sdr" | "growth")}>
@@ -175,7 +200,7 @@ export const UserStatsTableNew = () => {
           
           <Button onClick={handleDebug} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Debug & Refresh FINAL CORRIGÉ
+            Debug & Refresh
           </Button>
         </div>
 
@@ -223,7 +248,6 @@ export const UserStatsTableNew = () => {
                   En retard {getSortIcon("late")}
                 </div>
               </TableHead>
-              {/* Colonne "Non assigné" uniquement pour Growth */}
               {activeTab === "growth" && (
                 <TableHead onClick={() => handleSort("unassigned")} className="cursor-pointer">
                   <div className="flex items-center">
@@ -256,13 +280,12 @@ export const UserStatsTableNew = () => {
                   <TableCell className="font-medium">{user.stats.pending}</TableCell>
                   <TableCell className="font-medium">{user.stats.completed}</TableCell>
                   <TableCell className="font-medium">{user.stats.late}</TableCell>
-                  {/* Cellule "Non assigné" uniquement pour Growth avec gestion du clic CORRIGÉE */}
                   {activeTab === "growth" && (
                     <TableCell 
                       className="font-medium cursor-pointer hover:text-blue-600"
                       onClick={(e) => {
-                        e.stopPropagation(); // Empêcher le clic sur la ligne
-                        handleUnassignedClick(); // Naviguer vers les demandes non assignées
+                        e.stopPropagation();
+                        handleUnassignedClick();
                       }}
                     >
                       {user.stats.unassigned || 0}
@@ -284,6 +307,7 @@ export const UserStatsTableNew = () => {
       <div className="text-xs text-muted-foreground">
         Total utilisateurs affichés: {filteredUsers.length} | 
         Dernière mise à jour: {new Date().toLocaleString()}
+        {dateRange && " | Filtré par période"}
       </div>
     </div>
   );
