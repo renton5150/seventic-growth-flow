@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -160,6 +159,13 @@ function App() {
 
                 {/* Growth routes */}
                 <Route path="/growth" element={
+                  <ProtectedRoute allowedRoles={['growth', 'admin']}>
+                    <GrowthDashboard />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Add the missing growth-dashboard route */}
+                <Route path="/growth-dashboard" element={
                   <ProtectedRoute allowedRoles={['growth', 'admin']}>
                     <GrowthDashboard />
                   </ProtectedRoute>
