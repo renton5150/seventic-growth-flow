@@ -6,6 +6,7 @@ import { GrowthRequestsTable } from "@/components/growth/GrowthRequestsTable";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
+import { SpecialFilters } from "@/services/filtering/growthFilterService";
 
 interface GrowthDashboardContentProps {
   allRequests: Request[];
@@ -22,6 +23,7 @@ interface GrowthDashboardContentProps {
   activeFilter: string | null;
   setActiveFilter: (filter: string | null) => void;
   handleStatCardClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => void;
+  specialFilters?: SpecialFilters;
 }
 
 export const GrowthDashboardContent = ({
@@ -38,7 +40,8 @@ export const GrowthDashboardContent = ({
   updateRequestWorkflowStatus,
   activeFilter,
   setActiveFilter,
-  handleStatCardClick
+  handleStatCardClick,
+  specialFilters = {}
 }: GrowthDashboardContentProps) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -47,6 +50,7 @@ export const GrowthDashboardContent = ({
     userRole: user?.role,
     activeFilter,
     totalRequests: allRequests.length,
+    specialFilters,
     handleStatCardClick: typeof handleStatCardClick
   });
 
@@ -54,8 +58,9 @@ export const GrowthDashboardContent = ({
   useEffect(() => {
     console.log(`[RENDER] Current filter: ${activeTab}`);
     console.log(`[RENDER] Filtered requests count: ${filteredRequests.length}`);
+    console.log(`[RENDER] Special filters:`, specialFilters);
     console.log(`[RENDER] First 2 requests:`, filteredRequests.slice(0, 2));
-  }, [activeTab, filteredRequests]);
+  }, [activeTab, filteredRequests, specialFilters]);
   
   const isMyRequestsPage = location.pathname.includes("/my-requests");
   const isSDR = user?.role === 'sdr';
@@ -73,7 +78,8 @@ export const GrowthDashboardContent = ({
     total: statsRequests.length,
     userRole: user?.role,
     isSDR,
-    isMyRequestsPage
+    isMyRequestsPage,
+    specialFilters
   });
   
   return (
@@ -82,6 +88,7 @@ export const GrowthDashboardContent = ({
         allRequests={statsRequests} 
         onStatClick={handleStatCardClick}
         activeFilter={activeFilter}
+        specialFilters={specialFilters}
       />
       
       <GrowthActionsHeader

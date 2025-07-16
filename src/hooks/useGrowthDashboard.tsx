@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSingleRequestSource } from "./useSingleRequestSource";
-import { GrowthFilterService } from "@/services/filtering/growthFilterService";
+import { GrowthFilterService, SpecialFilters } from "@/services/filtering/growthFilterService";
 import { useGrowthDebug } from "./useGrowthDebug";
 
 export const useGrowthDashboard = (defaultTab?: string) => {
@@ -19,11 +19,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   const queryClient = useQueryClient();
 
   // État pour gérer les filtres spéciaux depuis l'admin dashboard
-  const [specialFilters, setSpecialFilters] = useState<{
-    showUnassigned?: boolean;
-    sdrFilter?: string;
-    growthFilter?: string;
-  }>({});
+  const [specialFilters, setSpecialFilters] = useState<SpecialFilters>({});
 
   // SOURCE UNIQUE DE DONNÉES
   const { data: allRequests = [], refetch: refetchRequests } = useSingleRequestSource();
@@ -31,8 +27,8 @@ export const useGrowthDashboard = (defaultTab?: string) => {
   // SERVICE DE FILTRAGE CENTRALISÉ
   const filterService = new GrowthFilterService(user?.id);
   
-  // FILTRAGE UNIFIÉ
-  const filteredRequests = filterService.filterRequests(currentFilter, allRequests);
+  // FILTRAGE UNIFIÉ avec prise en compte des filtres spéciaux
+  const filteredRequests = filterService.filterRequests(currentFilter, allRequests, specialFilters);
   
   // DEBUG AUTOMATIQUE
   const debugInfo = useGrowthDebug(allRequests, filteredRequests, currentFilter, user?.id);
@@ -107,7 +103,7 @@ export const useGrowthDashboard = (defaultTab?: string) => {
     setSpecialFilters({});
   }, []);
 
-  // Gestionnaire de clic sur les statistiques
+  // Gestionnaire de clic sur les statistiques avec prise en compte des filtres spéciaux
   const handleStatClick = useCallback((filterType: string) => {
     console.log(`[useGrowthDashboard] 🎯 CLIC sur filtre: "${filterType}"`);
     setCurrentFilter(filterType);

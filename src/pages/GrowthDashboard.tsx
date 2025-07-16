@@ -37,6 +37,8 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
     handleRequestDeleted,
     assignRequestToMe,
     updateRequestWorkflowStatus,
+    specialFilters,
+    clearSpecialFilters,
   } = useGrowthDashboard(defaultTab);
 
   // Appliquer le filtre depuis l'admin au chargement
@@ -47,7 +49,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
       
       // Définir le titre de la page selon le filtre
       if (navigationState.userName) {
-        setPageTitle(navigationState.userName);
+        setPageTitle(`Demandes de ${navigationState.userName}`);
       }
     }
   }, [navigationState, setCurrentFilter]);
@@ -62,6 +64,16 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
               <p className="text-sm text-muted-foreground mt-1">
                 Navigation depuis le tableau de bord administrateur
               </p>
+            )}
+            {(specialFilters.sdrFilter || specialFilters.growthFilter || specialFilters.showUnassigned) && (
+              <div className="mt-2">
+                <button 
+                  onClick={clearSpecialFilters}
+                  className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200"
+                >
+                  Supprimer le filtre utilisateur
+                </button>
+              </div>
             )}
           </div>
           <div className="text-sm text-muted-foreground">
@@ -84,6 +96,7 @@ const GrowthDashboard = ({ defaultTab }: GrowthDashboardProps) => {
           activeFilter={currentFilter}
           setActiveFilter={setCurrentFilter}
           handleStatCardClick={handleStatClick}
+          specialFilters={specialFilters}
         />
       </div>
     </AppLayout>
