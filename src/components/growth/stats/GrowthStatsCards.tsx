@@ -3,21 +3,24 @@ import { Mail, Clock, CheckCircle, AlertCircle, UserCheck, ClipboardList } from 
 import { Request } from "@/types/types";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { SpecialFilters } from "@/services/filtering/growthFilterService";
 
 interface GrowthStatsCardsProps {
   allRequests: Request[];
   onStatClick: (filterType: "all" | "pending" | "completed" | "late" | "inprogress" | "to_assign" | "my_assignments") => void;
   activeFilter?: string | null;
+  specialFilters?: SpecialFilters;
 }
 
-export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter }: GrowthStatsCardsProps) => {
+export const GrowthStatsCards = ({ allRequests, onStatClick, activeFilter, specialFilters = {} }: GrowthStatsCardsProps) => {
   const { user } = useAuth();
   const isGrowth = user?.role === 'growth';
   
   console.log("[GrowthStatsCards] 📊 STATS - Calcul des statistiques pour:", {
     userRole: user?.role,
     isGrowth,
-    totalRequests: allRequests.length
+    totalRequests: allRequests.length,
+    specialFilters
   });
   
   // Filtrer d'abord pour exclure les demandes terminées ET annulées
